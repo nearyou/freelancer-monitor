@@ -2,6 +2,7 @@ README.md
 pyproject.toml
 src/freelancer_monitor/__init__.py
 src/freelancer_monitor/__main__.py
+src/freelancer_monitor/commands.py
 src/freelancer_monitor/config.py
 src/freelancer_monitor/filters.py
 src/freelancer_monitor/freelancer.py
@@ -10,12 +11,19 @@ src/freelancer_monitor/scoring.py
 src/freelancer_monitor/service.py
 src/freelancer_monitor/state.py
 src/freelancer_monitor/telegram.py
+src/freelancer_monitor/tls.py
 src/freelancer_monitor.egg-info/PKG-INFO
 src/freelancer_monitor.egg-info/SOURCES.txt
 src/freelancer_monitor.egg-info/dependency_links.txt
 src/freelancer_monitor.egg-info/entry_points.txt
+src/freelancer_monitor.egg-info/requires.txt
 src/freelancer_monitor.egg-info/top_level.txt
+tests/test_commands.py
 tests/test_config.py
+tests/test_employer_page_parser.py
 tests/test_filters.py
 tests/test_freelancer_parser.py
 tests/test_scoring.py
+tests/test_state_preferences.py
+tests/test_telegram.py
+tests/test_tls.py

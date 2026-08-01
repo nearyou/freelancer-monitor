@@ -26,8 +26,9 @@ keep communication and payments on-platform.
 
 ## Setup
 
-Requires Python 3.10 or newer. The only runtime dependency is `requests`, used for pooled HTTPS
-connections, automatic response decompression, and safe retries.
+Requires Python 3.10 or newer. Runtime dependencies are `requests`, used for pooled HTTPS
+connections and safe retries, and `truststore`, used to verify HTTPS through the operating system's
+native certificate store. Certificate verification is never disabled.
 
 ```powershell
 Copy-Item .env_example .env

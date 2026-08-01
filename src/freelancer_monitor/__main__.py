@@ -5,6 +5,10 @@ import logging
 import sys
 import time
 
+from .tls import configure_system_trust
+
+configure_system_trust()
+
 from .config import Settings
 from .commands import TelegramCommandProcessor
 from .freelancer import FreelancerClient

@@ -7,7 +7,7 @@ name = "freelancer-monitor"
 version = "0.1.0"
 description = "Monitor Freelancer projects, score employer trust, and notify Telegram."
 requires-python = ">=3.10"
-dependencies = ["requests>=2.32,<3"]
+dependencies = ["requests>=2.32,<3", "truststore>=0.10,<1"]
 
 [project.scripts]
 freelancer-monitor = "freelancer_monitor.__main__:main"

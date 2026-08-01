@@ -3,3 +3,5 @@ Name: freelancer-monitor
 Version: 0.1.0
 Summary: Monitor Freelancer projects, score employer trust, and notify Telegram.
 Requires-Python: >=3.10
+Requires-Dist: requests<3,>=2.32
+Requires-Dist: truststore<1,>=0.10

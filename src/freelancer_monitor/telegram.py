@@ -2,17 +2,16 @@ from __future__ import annotations
 
 import json
 import time
-from datetime import timezone
+from datetime import timedelta, timezone
 from html import escape
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
-from zoneinfo import ZoneInfo
 
 from .models import Project
 
 
-JAPAN_TIMEZONE = ZoneInfo("Asia/Tokyo")
+JAPAN_TIMEZONE = timezone(timedelta(hours=9), name="JST")
 
 
 def format_project_message(project: Project) -> str:
