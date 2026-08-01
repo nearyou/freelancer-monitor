@@ -32,6 +32,19 @@ class PreferenceStoreTests(TestCase):
                 store.set_threshold(72.5)
                 self.assertEqual(store.get_threshold(), 72.5)
 
+                attempts, delay = store.record_project_failure(
+                    500, "missing client panel", now=1_000
+                )
+                self.assertEqual((attempts, delay), (1, 300))
+                self.assertEqual(store.deferred_project_ids([500], now=1_299), {500})
+                attempts, delay = store.record_project_failure(
+                    500, "still unavailable", now=1_300
+                )
+                self.assertEqual((attempts, delay), (2, 600))
+                self.assertEqual(store.deferred_project_ids([500], now=1_901), set())
+                store.mark_seen(500, notified=False, score=0)
+                self.assertEqual(store.deferred_project_ids([500], now=1_301), set())
+
                 store.mark_seen(101, notified=True, score=75)
                 store.mark_seen(102, notified=False, score=20)
                 store.mark_seen_many(
@@ -41,7 +54,7 @@ class PreferenceStoreTests(TestCase):
                     store.seen_project_ids(list(range(900, 2_100))),
                     set(range(1_000, 2_005)),
                 )
-                self.assertEqual(store.clear_history(), 1_007)
+                self.assertEqual(store.clear_history(), 1_008)
                 self.assertFalse(store.has_seen(101))
                 self.assertFalse(store.has_seen(102))
                 self.assertEqual(store.list_terms("skill"), ("Python",))

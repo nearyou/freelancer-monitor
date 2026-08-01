@@ -115,4 +115,6 @@ The monitor minimizes local and network overhead without relaxing service limits
 - project filters are normalized once per poll;
 - seen-project checks and filter-miss writes are batched in SQLite;
 - repeated employers within one poll reuse parsed trust details when an owner ID is available;
+- an unavailable or changed public client panel defers only that project, using a
+  five-minute exponential retry cooldown capped at one hour;
 - Freelancer request spacing and Telegram flood-control limits remain enforced.

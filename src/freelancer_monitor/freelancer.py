@@ -34,7 +34,11 @@ def _extract_client_section(html: str) -> str:
     return html[start : end + len(_CLIENT_SECTION_END)]
 
 
-class EmployerPageParseError(ValueError):
+class ProjectEnrichmentError(RuntimeError):
+    """Raised when one project's public detail page cannot be enriched safely."""
+
+
+class EmployerPageParseError(ProjectEnrichmentError):
     """Raised when a public project page does not expose its client information."""
 
 
@@ -316,16 +320,21 @@ class FreelancerClient:
         if remaining > 0:
             time.sleep(remaining)
         try:
-            response = self.session.get(
-                project.url,
-                headers={
-                    "Accept": "text/html,application/xhtml+xml",
-                    "Accept-Language": "en-US,en;q=0.9",
-                },
-                timeout=self.timeout,
-            )
-            response.raise_for_status()
-            html = response.text
+            try:
+                response = self.session.get(
+                    project.url,
+                    headers={
+                        "Accept": "text/html,application/xhtml+xml",
+                        "Accept-Language": "en-US,en;q=0.9",
+                    },
+                    timeout=self.timeout,
+                )
+                response.raise_for_status()
+                html = response.text
+            except requests.RequestException as exc:
+                raise ProjectEnrichmentError(
+                    f"Public project page request failed: {exc}"
+                ) from exc
         finally:
             self._last_detail_request_at = time.monotonic()
         employer = parse_employer_page(html)

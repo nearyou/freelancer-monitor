@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+import time
 from pathlib import Path
 
 
@@ -39,6 +40,21 @@ class SeenProjectStore:
                 value TEXT NOT NULL
             )
             """
+        )
+        self.connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS project_failures (
+                project_id INTEGER PRIMARY KEY,
+                attempts INTEGER NOT NULL,
+                retry_after REAL NOT NULL,
+                last_error TEXT NOT NULL,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_project_failures_retry_after "
+            "ON project_failures(retry_after)"
         )
         self.connection.commit()
 
@@ -148,12 +164,71 @@ class SeenProjectStore:
             seen_ids.update(row[0] for row in rows)
         return seen_ids
 
-    def mark_seen(self, project_id: int, *, notified: bool, score: float) -> None:
-        self.connection.execute(
-            "INSERT OR IGNORE INTO seen_projects(project_id, notified, score) VALUES (?, ?, ?)",
-            (project_id, int(notified), score),
+    def deferred_project_ids(
+        self, project_ids: list[int], *, now: float | None = None
+    ) -> set[int]:
+        if not project_ids:
+            return set()
+        current_time = time.time() if now is None else now
+        deferred_ids: set[int] = set()
+        for start in range(0, len(project_ids), 900):
+            chunk = project_ids[start : start + 900]
+            placeholders = ",".join("?" for _ in chunk)
+            rows = self.connection.execute(
+                f"SELECT project_id FROM project_failures "
+                f"WHERE retry_after > ? AND project_id IN ({placeholders})",
+                (current_time, *chunk),
+            ).fetchall()
+            deferred_ids.update(row[0] for row in rows)
+        return deferred_ids
+
+    def record_project_failure(
+        self,
+        project_id: int,
+        error: str,
+        *,
+        now: float | None = None,
+        base_delay_seconds: int = 300,
+        max_delay_seconds: int = 3600,
+    ) -> tuple[int, int]:
+        current_time = time.time() if now is None else now
+        row = self.connection.execute(
+            "SELECT attempts FROM project_failures WHERE project_id = ?", (project_id,)
+        ).fetchone()
+        attempts = (row[0] if row else 0) + 1
+        delay = min(
+            base_delay_seconds * (2 ** min(attempts - 1, 20)), max_delay_seconds
         )
-        self.connection.commit()
+        with self.connection:
+            self.connection.execute(
+                """
+                INSERT INTO project_failures(project_id, attempts, retry_after, last_error)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(project_id) DO UPDATE SET
+                    attempts = excluded.attempts,
+                    retry_after = excluded.retry_after,
+                    last_error = excluded.last_error,
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                (project_id, attempts, current_time + delay, error[:1000]),
+            )
+        return attempts, delay
+
+    def clear_project_failure(self, project_id: int) -> None:
+        with self.connection:
+            self.connection.execute(
+                "DELETE FROM project_failures WHERE project_id = ?", (project_id,)
+            )
+
+    def mark_seen(self, project_id: int, *, notified: bool, score: float) -> None:
+        with self.connection:
+            self.connection.execute(
+                "INSERT OR IGNORE INTO seen_projects(project_id, notified, score) VALUES (?, ?, ?)",
+                (project_id, int(notified), score),
+            )
+            self.connection.execute(
+                "DELETE FROM project_failures WHERE project_id = ?", (project_id,)
+            )
 
     def mark_seen_many(self, records: list[tuple[int, bool, float]]) -> None:
         if not records:
@@ -165,6 +240,10 @@ class SeenProjectStore:
                 VALUES (?, ?, ?)
                 """,
                 ((project_id, int(notified), score) for project_id, notified, score in records),
+            )
+            self.connection.executemany(
+                "DELETE FROM project_failures WHERE project_id = ?",
+                ((project_id,) for project_id, _, _ in records),
             )
 
     def clear_history(self) -> int:

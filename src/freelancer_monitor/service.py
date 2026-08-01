@@ -4,7 +4,7 @@ import logging
 
 from .config import Settings
 from .filters import compile_project_filter
-from .freelancer import FreelancerClient
+from .freelancer import FreelancerClient, ProjectEnrichmentError
 from .scoring import score_employer
 from .state import SeenProjectStore
 from .telegram import TelegramClient, format_project_message
@@ -36,8 +36,14 @@ class Monitor:
             mode=self.settings.filter_match_mode,
         )
         sorted_projects = sorted(projects, key=lambda item: item.id)
-        seen_ids = self.store.seen_project_ids([project.id for project in sorted_projects])
-        unseen_projects = [project for project in sorted_projects if project.id not in seen_ids]
+        project_ids = [project.id for project in sorted_projects]
+        seen_ids = self.store.seen_project_ids(project_ids)
+        deferred_ids = self.store.deferred_project_ids(project_ids)
+        unseen_projects = [
+            project
+            for project in sorted_projects
+            if project.id not in seen_ids and project.id not in deferred_ids
+        ]
         matched_projects = []
         filter_misses = []
         for project in unseen_projects:
@@ -51,7 +57,21 @@ class Monitor:
         notified = 0
         processed = len(unseen_projects)
         for project in matched_projects:
-            project = self.freelancer.enrich_from_public_page(project)
+            try:
+                project = self.freelancer.enrich_from_public_page(project)
+            except ProjectEnrichmentError as exc:
+                attempts, retry_seconds = self.store.record_project_failure(
+                    project.id, str(exc)
+                )
+                logger.warning(
+                    "Deferred project %s for %s seconds after enrichment failure "
+                    "(attempt %s): %s",
+                    project.id,
+                    retry_seconds,
+                    attempts,
+                    exc,
+                )
+                continue
             score = score_employer(project.employer, self.settings.score)
             should_notify = score.total >= threshold
             if should_notify:
