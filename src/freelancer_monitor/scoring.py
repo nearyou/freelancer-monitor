@@ -17,9 +17,9 @@ def score_employer(
     if now.tzinfo is None:
         now = now.replace(tzinfo=timezone.utc)
 
-    identity = config.identity_verified if employer.identity_verified else 0.0
     payment = config.payment_verified if employer.payment_verified else 0.0
     deposit = config.deposit_made if employer.deposit_made else 0.0
+    profile = config.profile_completed if employer.profile_completed else 0.0
 
     review_count = max(employer.review_count, 0)
     reviews = config.reviews_max * min(
@@ -36,12 +36,12 @@ def score_employer(
         math.log1p(member_age_days) / math.log1p(config.member_age_max_days), 1.0
     )
 
-    values = (identity, payment, deposit, reviews, member_age)
+    values = (payment, deposit, profile, reviews, member_age)
     return ScoreBreakdown(
         total=round(sum(values), 2),
-        identity_verified=round(identity, 2),
         payment_verified=round(payment, 2),
         deposit_made=round(deposit, 2),
+        profile_completed=round(profile, 2),
         reviews=round(reviews, 2),
         member_age=round(member_age, 2),
         member_age_days=round(member_age_days, 2),

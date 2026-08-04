@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timedelta, timezone
 
 from .config import Settings
 from .filters import compile_project_filter
@@ -10,6 +11,20 @@ from .state import SeenProjectStore
 from .telegram import TelegramClient, format_project_message
 
 logger = logging.getLogger(__name__)
+MAX_PROJECT_AGE = timedelta(hours=1)
+
+
+def is_project_stale(project, *, now: datetime | None = None) -> bool:
+    """Return true when a known submission time is at least one hour old."""
+    if project.submitted_at is None:
+        return False
+    submitted_at = project.submitted_at
+    if submitted_at.tzinfo is None:
+        submitted_at = submitted_at.replace(tzinfo=timezone.utc)
+    current_time = now or datetime.now(timezone.utc)
+    if current_time.tzinfo is None:
+        current_time = current_time.replace(tzinfo=timezone.utc)
+    return current_time - submitted_at >= MAX_PROJECT_AGE
 
 
 class Monitor:
@@ -46,8 +61,12 @@ class Monitor:
         ]
         matched_projects = []
         filter_misses = []
+        poll_time = datetime.now(timezone.utc)
         for project in unseen_projects:
-            if project_filter.matches(project):
+            if is_project_stale(project, now=poll_time):
+                filter_misses.append((project.id, False, 0.0))
+                logger.info("Skipped project %s (posted at least 1 hour ago)", project.id)
+            elif project_filter.matches(project):
                 matched_projects.append(project)
             else:
                 filter_misses.append((project.id, False, 0.0))

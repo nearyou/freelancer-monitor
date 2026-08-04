@@ -6,15 +6,15 @@ from freelancer_monitor.models import Employer
 from freelancer_monitor.scoring import score_employer
 
 
-CONFIG = ScoreConfig(20, 20, 15, 15, 10, 50, 100)
+CONFIG = ScoreConfig(20, 15, 5, 15, 10, 50, 100)
 
 
 class ScoreEmployerTests(TestCase):
-    def test_fully_trusted_old_employer_scores_80(self):
+    def test_fully_trusted_old_employer_scores_65(self):
         employer = Employer(
-            identity_verified=True,
             payment_verified=True,
             deposit_made=True,
+            profile_completed=True,
             rating=5,
             review_count=50,
             member_since=datetime(2015, 1, 1, tzinfo=timezone.utc),
@@ -22,7 +22,8 @@ class ScoreEmployerTests(TestCase):
         score = score_employer(
             employer, CONFIG, now=datetime(2026, 1, 1, tzinfo=timezone.utc)
         )
-        self.assertEqual(score.total, 80)
+        self.assertEqual(score.total, 65)
+        self.assertEqual(score.profile_completed, 5)
 
     def test_rating_does_not_change_score(self):
         low_rating = Employer(rating=0, review_count=3)

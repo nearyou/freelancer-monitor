@@ -6,14 +6,14 @@ Telegram.
 
 ## Trust score
 
-The default score is out of 80. Employer rating is displayed as a rounded integer in Telegram but
+The default score is out of 65. Employer rating is displayed as a rounded integer in Telegram but
 does not affect the score:
 
 | Signal | Default maximum | Calculation |
 |---|---:|---|
-| Identity/profile check | 20 | Public `Identity verified` or `Profile complete` marker |
 | Payment verified | 20 | All or nothing |
 | Deposit made | 15 | All or nothing |
+| Profile Completed | 5 | Public `Profile complete` marker; all or nothing |
 | Overall rating | Not scored | Display-only, rounded to a whole star |
 | Number of reviews | 15 | Logarithmic, capped at 50 reviews |
 | Member since | 10 | Logarithmic age in whole days, capped at 100 days |
@@ -65,10 +65,10 @@ detail page. It parses semantic labels rather than visual CSS classes. To keep t
 projects that first pass your word/skill filters are enriched, and
 `DETAIL_REQUEST_DELAY_SECONDS` spaces out page requests.
 
-The public page calls its person check `Profile complete`; this is used for the configurable
-identity/profile score when a separate `Identity verified` marker is not present. If Freelancer
-omits the client section or a required field, the project is not scored as zero: that poll fails and
-retries later, avoiding a misleading trust decision.
+The public page's `Profile complete` marker is shown as `Profile Completed` and contributes five
+points by default. It is not treated as identity verification. If Freelancer omits the client
+section or a required field, that project is deferred with backoff instead of receiving a
+misleading trust score.
 
 ## Filters
 
@@ -104,6 +104,8 @@ notified again after clearing history.
 
 The monitor uses the active-project API for discovery and public project pages for trust details.
 Automated access remains subject to Freelancer's terms and robots/rate-limit policies.
+Projects posted at least one hour ago are marked as processed without page enrichment or a
+Telegram notification. Projects whose submission time is unavailable remain eligible.
 
 ## Performance
 

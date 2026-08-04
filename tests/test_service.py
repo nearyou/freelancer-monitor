@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
@@ -7,7 +7,7 @@ from unittest import TestCase
 from freelancer_monitor.config import ScoreConfig
 from freelancer_monitor.freelancer import EmployerPageParseError
 from freelancer_monitor.models import Employer, Project
-from freelancer_monitor.service import Monitor
+from freelancer_monitor.service import Monitor, is_project_stale
 from freelancer_monitor.state import SeenProjectStore
 
 
@@ -35,6 +35,65 @@ class _Telegram:
 
 
 class MonitorResilienceTests(TestCase):
+    def test_projects_posted_one_hour_or_more_ago_are_stale(self):
+        now = datetime(2026, 8, 3, 12, 0, tzinfo=timezone.utc)
+        project = Project(
+            id=10,
+            title="Boundary",
+            description="",
+            url="https://example/10",
+            submitted_at=now - timedelta(hours=1),
+        )
+
+        self.assertTrue(is_project_stale(project, now=now))
+        self.assertFalse(
+            is_project_stale(
+                Project(
+                    id=11,
+                    title="Fresh",
+                    description="",
+                    url="https://example/11",
+                    submitted_at=now - timedelta(minutes=59, seconds=59),
+                ),
+                now=now,
+            )
+        )
+        self.assertFalse(
+            is_project_stale(
+                Project(id=12, title="Unknown", description="", url="https://example/12"),
+                now=now,
+            )
+        )
+
+    def test_stale_project_is_marked_seen_without_page_enrichment(self):
+        stale_project = Project(
+            id=3,
+            title="Old project",
+            description="",
+            url="https://example/3",
+            submitted_at=datetime.now(timezone.utc) - timedelta(hours=2),
+        )
+        freelancer = _Freelancer([stale_project])
+        telegram = _Telegram()
+        settings = SimpleNamespace(
+            page_limit=50,
+            filter_match_mode="any",
+            score=ScoreConfig(20, 15, 5, 15, 10, 50, 100),
+        )
+
+        with TemporaryDirectory() as directory:
+            store = SeenProjectStore(Path(directory) / "state.db")
+            try:
+                store.initialize_preferences(skills=(), search_words=(), threshold=0)
+                monitor = Monitor(settings, freelancer, telegram, store)
+
+                self.assertEqual(monitor.run_once(), (1, 0))
+                self.assertTrue(store.has_seen(3))
+                self.assertEqual(freelancer.enriched_ids, [])
+                self.assertEqual(telegram.messages, [])
+            finally:
+                store.close()
+
     def test_one_unparseable_page_does_not_abort_other_projects(self):
         projects = [
             Project(id=1, title="Unavailable", description="", url="https://example/1"),
@@ -44,8 +103,8 @@ class MonitorResilienceTests(TestCase):
                 description="",
                 url="https://example/2",
                 employer=Employer(
-                    identity_verified=True,
                     payment_verified=True,
+                    profile_completed=True,
                     member_since=datetime(2020, 1, 1, tzinfo=timezone.utc),
                 ),
             ),
@@ -55,7 +114,7 @@ class MonitorResilienceTests(TestCase):
         settings = SimpleNamespace(
             page_limit=50,
             filter_match_mode="any",
-            score=ScoreConfig(20, 20, 15, 15, 10, 50, 100),
+            score=ScoreConfig(20, 15, 5, 15, 10, 50, 100),
         )
 
         with TemporaryDirectory() as directory:

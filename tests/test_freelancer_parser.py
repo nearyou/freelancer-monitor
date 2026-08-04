@@ -52,7 +52,7 @@ class FreelancerParserTests(TestCase):
                     "7": {
                         "registration_date": 1577836800,
                         "status": {
-                            "identity_verified": True,
+                            "profile_complete": True,
                             "payment_verified": True,
                             "deposit_made": True,
                         },
@@ -72,7 +72,9 @@ class FreelancerParserTests(TestCase):
         )
         self.assertEqual(project.employer.rating, 4.8)
         self.assertEqual(project.employer.review_count, 12)
+        self.assertTrue(project.employer.payment_verified)
         self.assertTrue(project.employer.deposit_made)
+        self.assertTrue(project.employer.profile_completed)
 
     def test_same_employer_is_enriched_only_once_per_poll(self):
         client = FreelancerClient("https://example.test/api", detail_request_delay_seconds=0)

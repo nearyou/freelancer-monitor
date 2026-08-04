@@ -7,9 +7,9 @@ from datetime import datetime
 @dataclass(frozen=True)
 class Employer:
     country: str = ""
-    identity_verified: bool = False
     payment_verified: bool = False
     deposit_made: bool = False
+    profile_completed: bool = False
     rating: float = 0.0
     review_count: int = 0
     member_since: datetime | None = None
@@ -35,9 +35,9 @@ class Project:
 @dataclass(frozen=True)
 class ScoreBreakdown:
     total: float
-    identity_verified: float
     payment_verified: float
     deposit_made: float
+    profile_completed: float
     reviews: float
     member_age: float
     member_age_days: float

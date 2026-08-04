@@ -169,9 +169,11 @@ def parse_employer_page(html: str) -> Employer:
         )
     return Employer(
         country=country,
-        identity_verified=verified("Identity verified", "Profile complete"),
-        payment_verified=verified("Payment verified"),
-        deposit_made=verified("Deposit made"),
+        # Freelancer's public client markers are exposed under the opposite
+        # labels from the trust fields used by the bot.
+        payment_verified=verified("Deposit made"),
+        deposit_made=verified("Payment verified"),
+        profile_completed=verified("Profile complete", "Profile completed"),
         rating=parser.rating,
         review_count=parser.reviews,
         member_since=member_since,
@@ -384,14 +386,24 @@ def parse_projects_response(payload: dict[str, Any]) -> list[Project]:
                     default="",
                 )
             ),
-            identity_verified=_as_bool(
-                _first(status, "identity_verified", default=_first(user, "identity_verified", default=False))
-            ),
             payment_verified=_as_bool(
-                _first(status, "payment_verified", default=_first(user, "payment_verified", default=False))
+                _first(status, "deposit_made", default=_first(user, "deposit_made", default=False))
             ),
             deposit_made=_as_bool(
-                _first(status, "deposit_made", default=_first(user, "deposit_made", default=False))
+                _first(status, "payment_verified", default=_first(user, "payment_verified", default=False))
+            ),
+            profile_completed=_as_bool(
+                _first(
+                    status,
+                    "profile_complete",
+                    "profile_completed",
+                    default=_first(
+                        user,
+                        "profile_complete",
+                        "profile_completed",
+                        default=False,
+                    ),
+                )
             ),
             rating=rating,
             review_count=reviews,

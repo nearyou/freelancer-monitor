@@ -23,9 +23,9 @@ class TelegramMessageTests(TestCase):
             submitted_at=datetime(2026, 8, 1, 3, 45, tzinfo=timezone.utc),
             employer=Employer(
                 country="United States",
-                identity_verified=True,
                 payment_verified=True,
                 deposit_made=False,
+                profile_completed=True,
                 rating=4.8,
                 review_count=12,
                 member_since=datetime(2020, 5, 3, tzinfo=timezone.utc),
@@ -45,9 +45,11 @@ class TelegramMessageTests(TestCase):
         self.assertIn("<b>Payment Type:</b> Fixed price", message)
         self.assertIn("<b>Listing type:</b> Featured • NDA • Urgent", message)
         self.assertIn("<b>Budget:</b> 100–500", message)
-        self.assertIn("✅ Identity verified", message)
         self.assertIn("✅ Payment verified", message)
         self.assertIn("⛔ Deposit made", message)
+        self.assertIn("✅ Profile Completed", message)
+        self.assertNotIn("Identity verified", message)
+        self.assertLess(message.index("Deposit made"), message.index("Profile Completed"))
         self.assertNotIn("https://www.freelancer.com/projects/42", message)
         self.assertNotIn("Open project", message)
         self.assertIn("<b>Posted:</b> Aug 1, 2026 12:45 JST", message)

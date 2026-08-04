@@ -55,9 +55,9 @@ def format_project_message(project: Project) -> str:
         f"<b>Posted:</b> {escape(posted_at)}\n"
         f"━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
         f"🏠 {escape(employer.country or 'Unknown')}\t ⭐ {rating}\t 💬 {employer.review_count}\t 📅 {escape(member_since)}\n"
-        f"{status(employer.identity_verified)} Identity verified\n"
         f"{status(employer.payment_verified)} Payment verified\n"
-        f"{status(employer.deposit_made)} Deposit made"
+        f"{status(employer.deposit_made)} Deposit made\n"
+        f"{status(employer.profile_completed)} Profile Completed"
 
     )
 

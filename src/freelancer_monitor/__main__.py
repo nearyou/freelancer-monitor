@@ -54,6 +54,14 @@ def main() -> int:
     )
     if imported:
         logging.info("Imported initial filters and threshold into SQLite")
+    stored_threshold = store.get_threshold()
+    if stored_threshold > settings.score.maximum:
+        store.set_threshold(settings.score.maximum)
+        logging.warning(
+            "Reduced stored threshold from %g to the new maximum score %g",
+            stored_threshold,
+            settings.score.maximum,
+        )
     telegram = TelegramClient(
         settings.telegram_bot_token,
         settings.telegram_chat_id,

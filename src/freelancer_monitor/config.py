@@ -42,9 +42,9 @@ def _float(name: str, default: float, minimum: float = 0.0) -> float:
 
 @dataclass(frozen=True)
 class ScoreConfig:
-    identity_verified: float
     payment_verified: float
     deposit_made: float
+    profile_completed: float
     reviews_max: float
     member_age_max: float
     reviews_cap: int
@@ -53,9 +53,9 @@ class ScoreConfig:
     @property
     def maximum(self) -> float:
         return (
-            self.identity_verified
-            + self.payment_verified
+            self.payment_verified
             + self.deposit_made
+            + self.profile_completed
             + self.reviews_max
             + self.member_age_max
         )
@@ -91,9 +91,9 @@ class Settings:
             raise ValueError("FILTER_MATCH_MODE must be 'any' or 'all'")
 
         score = ScoreConfig(
-            identity_verified=_float("SCORE_IDENTITY_VERIFIED", 20),
             payment_verified=_float("SCORE_PAYMENT_VERIFIED", 20),
             deposit_made=_float("SCORE_DEPOSIT_MADE", 15),
+            profile_completed=_float("SCORE_PROFILE_COMPLETED", 5),
             reviews_max=_float("SCORE_REVIEWS_MAX", 15),
             member_age_max=_float("SCORE_MEMBER_AGE_MAX", 10),
             reviews_cap=_int("SCORE_REVIEWS_CAP", 50, 1),

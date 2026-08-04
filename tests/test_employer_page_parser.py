@@ -31,9 +31,17 @@ class EmployerPageParserTests(TestCase):
         self.assertEqual(employer.rating, 5)
         self.assertEqual(employer.review_count, 2)
         self.assertEqual(employer.member_since.year, 2026)
-        self.assertTrue(employer.identity_verified)
-        self.assertTrue(employer.deposit_made)
-        self.assertFalse(employer.payment_verified)
+        self.assertFalse(employer.deposit_made)
+        self.assertTrue(employer.payment_verified)
+        self.assertTrue(employer.profile_completed)
+
+    def test_identity_marker_is_not_treated_as_profile_completed(self):
+        page = PAGE.replace(
+            '<fl-icon aria-label="Profile complete"><span data-color="success"></span></fl-icon>',
+            '<fl-icon aria-label="Identity verified"><span data-color="success"></span></fl-icon>',
+        )
+
+        self.assertFalse(parse_employer_page(page).profile_completed)
 
     def test_missing_client_section_is_not_silently_scored(self):
         with self.assertRaises(EmployerPageParseError):
