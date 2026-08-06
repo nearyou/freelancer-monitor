@@ -25,6 +25,14 @@ class FakeResponse:
 
 
 class FreelancerParserTests(TestCase):
+    def test_detail_session_retries_transient_not_found_responses(self):
+        client = FreelancerClient("https://example.test/api")
+        try:
+            retries = client.session.get_adapter("https://").max_retries
+            self.assertIn(404, retries.status_forcelist)
+        finally:
+            client.close()
+
     def test_parses_project_and_employer_reputation(self):
         payload = {
             "result": {

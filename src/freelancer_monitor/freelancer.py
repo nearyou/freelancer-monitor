@@ -279,7 +279,9 @@ class FreelancerClient:
             read=2,
             status=2,
             backoff_factor=0.5,
-            status_forcelist=(429, 500, 502, 503, 504),
+            # Freelancer can briefly return 404 while a new SEO route is
+            # propagating across its edge nodes.
+            status_forcelist=(404, 429, 500, 502, 503, 504),
             allowed_methods=frozenset({"GET"}),
             respect_retry_after_header=True,
         )
@@ -289,7 +291,11 @@ class FreelancerClient:
         session.headers.update(
             {
                 "Accept-Encoding": "gzip, deflate",
-                "User-Agent": "freelancer-monitor/0.1",
+                "User-Agent": (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/131.0.0.0 Safari/537.36"
+                ),
             }
         )
         return session
