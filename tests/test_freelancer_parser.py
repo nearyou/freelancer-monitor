@@ -25,6 +25,51 @@ class FakeResponse:
 
 
 class FreelancerParserTests(TestCase):
+    def test_resolves_all_skill_names_once_and_caches_ids(self):
+        response = mock.Mock()
+        response.json.return_value = {
+            "result": [{"id": 13, "name": "Python"}, {"id": 7, "name": "Java"}]
+        }
+        session = mock.Mock()
+        session.get.return_value = response
+        client = FreelancerClient(
+            "https://example.test/api/projects/0.1/projects/active/", session=session
+        )
+
+        self.assertEqual(client.resolve_skill_ids(("Python", "Java")), (13, 7))
+        self.assertEqual(client.resolve_skill_ids(("Python", "Java")), (13, 7))
+        self.assertEqual(session.get.call_count, 1)
+        self.assertEqual(
+            session.get.call_args.kwargs["params"],
+            {"job_names[]": ["Python", "Java"]},
+        )
+        self.assertEqual(
+            session.get.call_args.args[0], "https://example.test/api/projects/0.1/jobs/"
+        )
+
+    def test_discovery_combines_all_filters_and_requests_newest_first(self):
+        response = mock.Mock()
+        response.json.return_value = {"result": {"projects": []}}
+        session = mock.Mock()
+        session.get.return_value = response
+        client = FreelancerClient("https://example.test/api", session=session)
+
+        client.fetch_active_projects(
+            20,
+            search_terms=("Python", "API Integration"),
+            skill_ids=(6, 7, 6),
+            languages=("en", "ja"),
+        )
+
+        parameters = session.get.call_args.kwargs["params"]
+        self.assertEqual(parameters["query"], "Python API Integration")
+        self.assertEqual(parameters["jobs[]"], [6, 7])
+        self.assertEqual(parameters["languages[]"], ["en", "ja"])
+        self.assertEqual(parameters["sort_field"], "time_updated")
+        # Freelancer's active endpoint returns newest first when reverse_sort
+        # is omitted; either boolean value currently reverses it to oldest.
+        self.assertNotIn("reverse_sort", parameters)
+
     def test_detail_session_retries_transient_not_found_responses(self):
         client = FreelancerClient("https://example.test/api")
         try:

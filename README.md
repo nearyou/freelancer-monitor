@@ -103,6 +103,11 @@ search words, threshold, command offset, or other settings. Active projects may 
 notified again after clearing history.
 
 The monitor uses the active-project API for discovery and public project pages for trust details.
+The bot automatically resolves every skill registered through `/add_skill` to Freelancer's skill
+ID. It refreshes that mapping when the registered list changes, then sends all IDs in one project
+request, newest first. `FREELANCER_LANGUAGES` optionally limits the feed by language code.
+Registered search words and skill names are also combined into the request; the existing local
+filter remains the final correctness check.
 Automated access remains subject to Freelancer's terms and robots/rate-limit policies.
 Projects posted at least one hour ago are marked as processed without page enrichment or a
 Telegram notification. Projects whose submission time is unavailable remain eligible.

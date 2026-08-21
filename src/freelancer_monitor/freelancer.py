@@ -7,6 +7,7 @@ from dataclasses import replace
 from datetime import datetime, timezone
 from html.parser import HTMLParser
 from typing import Any
+from urllib.parse import urljoin
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -269,6 +270,8 @@ class FreelancerClient:
         self.detail_request_delay_seconds = detail_request_delay_seconds
         self._last_detail_request_at = 0.0
         self._employer_cache: dict[int, Employer] = {}
+        self._resolved_skill_names: tuple[str, ...] | None = None
+        self._resolved_skill_ids: tuple[int, ...] = ()
         self.session = session or self._build_session()
 
     @staticmethod
@@ -300,7 +303,53 @@ class FreelancerClient:
         )
         return session
 
-    def fetch_active_projects(self, limit: int = 50) -> list[Project]:
+    def resolve_skill_ids(self, skill_names: tuple[str, ...]) -> tuple[int, ...]:
+        """Resolve all registered Freelancer skill names in one catalog request."""
+        normalized_names = tuple(
+            dict.fromkeys(name.strip() for name in skill_names if name.strip())
+        )
+        if normalized_names == self._resolved_skill_names:
+            return self._resolved_skill_ids
+        if not normalized_names:
+            self._resolved_skill_names = normalized_names
+            self._resolved_skill_ids = ()
+            return ()
+
+        response = self.session.get(
+            urljoin(self.api_url, "../../jobs/"),
+            params={"job_names[]": list(normalized_names)},
+            headers={"Accept": "application/json"},
+            timeout=self.timeout,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        result = payload.get("result", payload)
+        jobs = result if isinstance(result, list) else []
+        ids_by_name = {
+            str(job.get("name", "")).strip().casefold(): int(job["id"])
+            for job in jobs
+            if isinstance(job, dict) and job.get("id") is not None
+        }
+        resolved = tuple(
+            ids_by_name[name.casefold()]
+            for name in normalized_names
+            if name.casefold() in ids_by_name
+        )
+        missing = [name for name in normalized_names if name.casefold() not in ids_by_name]
+        if missing:
+            logger.warning("Freelancer did not recognize registered skills: %s", ", ".join(missing))
+        self._resolved_skill_names = normalized_names
+        self._resolved_skill_ids = resolved
+        return resolved
+
+    def fetch_active_projects(
+        self,
+        limit: int = 50,
+        *,
+        search_terms: tuple[str, ...] = (),
+        skill_ids: tuple[int, ...] = (),
+        languages: tuple[str, ...] = (),
+    ) -> list[Project]:
         self._employer_cache.clear()
         parameters = {
             "limit": limit,
@@ -311,6 +360,15 @@ class FreelancerClient:
             "sort_field": "time_updated",
             "or_search_query": "true",
         }
+        # Freelancer applies all repeated jobs/languages in one server-side
+        # search. This prevents relevant projects from being crowded out of a
+        # small, unfiltered global page before the bot sees them.
+        if search_terms:
+            parameters["query"] = " ".join(dict.fromkeys(search_terms))
+        if skill_ids:
+            parameters["jobs[]"] = list(dict.fromkeys(skill_ids))
+        if languages:
+            parameters["languages[]"] = list(dict.fromkeys(languages))
         response = self.session.get(
             self.api_url,
             params=parameters,

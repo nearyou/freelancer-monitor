@@ -16,8 +16,11 @@ class _Freelancer:
         self.projects = projects
         self.enriched_ids = []
 
-    def fetch_active_projects(self, _limit):
+    def fetch_active_projects(self, _limit, **_filters):
         return self.projects
+
+    def resolve_skill_ids(self, _skills):
+        return ()
 
     def enrich_from_public_page(self, project):
         self.enriched_ids.append(project.id)

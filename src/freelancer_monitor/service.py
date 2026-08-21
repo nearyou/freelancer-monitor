@@ -41,9 +41,15 @@ class Monitor:
         self.store = store
 
     def run_once(self) -> tuple[int, int]:
-        projects = self.freelancer.fetch_active_projects(self.settings.page_limit)
         search_words = self.store.list_terms("search_word")
         skills = self.store.list_terms("skill")
+        skill_ids = self.freelancer.resolve_skill_ids(skills)
+        projects = self.freelancer.fetch_active_projects(
+            self.settings.page_limit,
+            search_terms=search_words + skills,
+            skill_ids=skill_ids,
+            languages=getattr(self.settings, "freelancer_languages", ()),
+        )
         threshold = self.store.get_threshold()
         project_filter = compile_project_filter(
             search_words=search_words,

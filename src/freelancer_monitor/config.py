@@ -69,6 +69,7 @@ class Settings:
     freelancer_api_url: str
     page_limit: int
     detail_request_delay_seconds: float
+    freelancer_languages: tuple[str, ...]
     search_words: tuple[str, ...]
     skills: tuple[str, ...]
     filter_match_mode: str
@@ -117,6 +118,7 @@ class Settings:
             ).strip(),
             page_limit=_int("FREELANCER_PAGE_LIMIT", 50, 1),
             detail_request_delay_seconds=_float("DETAIL_REQUEST_DELAY_SECONDS", 1.0),
+            freelancer_languages=_csv("FREELANCER_LANGUAGES"),
             search_words=_csv("SEARCH_WORDS"),
             skills=_csv("SKILLS"),
             filter_match_mode=match_mode,
