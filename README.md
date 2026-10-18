@@ -13,7 +13,7 @@ does not affect the score:
 |---|---:|---|
 | Payment verified | 20 | All or nothing |
 | Deposit made | 15 | All or nothing |
-| Profile Completed | 5 | Public `Profile complete` marker; all or nothing |
+| Profile Completed | 5 | API `owner_info.status.profile_complete`; all or nothing |
 | Overall rating | Not scored | Display-only, rounded to a whole star |
 | Number of reviews | 15 | Logarithmic, capped at 50 reviews |
 | Member since | 10 | Logarithmic age in whole days, capped at 100 days |
@@ -59,16 +59,20 @@ seconds so the bot remains below the stricter 20-messages-per-minute group limit
 seconds are rejected. If Telegram still responds with flood-control status `429`, the sender waits
 for Telegram's `retry_after` duration and retries up to five times.
 
-No Freelancer access token is used. Anonymous API responses omit their expanded `users` map, so
-the monitor retrieves employer trust signals from each matching project's public, server-rendered
-detail page. It parses semantic labels rather than visual CSS classes. To keep this polite, only
-projects that first pass your word/skill filters are enriched, and
-`DETAIL_REQUEST_DELAY_SECONDS` spaces out page requests.
+No Freelancer access token is used. The active-project API is requested with `owner_info=true`,
+`webapp=1`, and `compact=true`. Each project's inline `owner_info` supplies the employer's country,
+registration date, reputation, and verification states in the same response. There are no HTML
+requests or per-project enrichment delays. Existing `DETAIL_REQUEST_DELAY_SECONDS` values are ignored.
 
-The public page's `Profile complete` marker is shown as `Profile Completed` and contributes five
-points by default. It is not treated as identity verification. If Freelancer omits the client
-section or a required field, that project is deferred with backoff instead of receiving a
-misleading trust score.
+Telegram displays payment, deposit, profile, identity, phone, and email verification. Identity,
+phone, and email are display-only; score weights and the 65-point maximum are unchanged. Missing
+optional verification states use a question mark. Payment and deposit now map directly to their
+API names, replacing the old HTML label swap; scores can therefore differ for employers with only
+one of those two verifications.
+
+If required scoring data is missing, only that project is deferred with backoff. Compact responses
+omit review counts for unrated employers; these are treated as zero when the API explicitly reports
+a zero rating. An API error or malformed response fails the poll instead of looking like an empty feed.
 
 ## Filters
 
@@ -102,28 +106,42 @@ one match from each non-empty group. An empty group is disabled.
 search words, threshold, command offset, or other settings. Active projects may be processed and
 notified again after clearing history.
 
-The monitor uses the active-project API for discovery and public project pages for trust details.
+The monitor uses the active-project API for both discovery and employer trust details.
 The bot automatically resolves every skill registered through `/add_skill` to Freelancer's skill
 ID. It refreshes that mapping when the registered list changes, then sends all IDs in one project
-request, newest first. `FREELANCER_LANGUAGES` optionally limits the feed by language code.
+request, sorted by `submitdate`. `FREELANCER_LANGUAGES` optionally limits the feed by language code.
 Registered search words and skill names are also combined into the request; the existing local
 filter remains the final correctness check.
+`FREELANCER_API_URL` can also contain a full query string. URL filters such as `jobs[]`,
+`languages[]`, `project_types[]=fixed`, and `max_price=1500` are retained. Non-empty runtime skills,
+languages, and search terms override the corresponding URL filters; `FREELANCER_PAGE_LIMIT` always
+controls the page size. Required owner/detail flags and submission-date sorting are set by the client.
+The default URL does not hard-code the example's skills, languages, budget, or fixed-price restriction.
 Automated access remains subject to Freelancer's terms and robots/rate-limit policies.
-Projects posted at least one hour ago are marked as processed without page enrichment or a
+Projects posted at least one hour ago are marked as processed without a
 Telegram notification. Projects whose submission time is unavailable remain eligible.
 
 ## Performance
 
 The monitor minimizes local and network overhead without relaxing service limits:
 
-- one pooled HTTPS session is reused for Freelancer API and detail-page requests;
+- one pooled HTTPS session is reused for Freelancer API requests;
 - gzip/deflate responses are decompressed automatically;
-- only the small client-information HTML section is parsed;
+- one project API response supplies project and employer data for the whole page;
 - project filters are normalized once per poll;
 - seen-project checks and filter-miss writes are batched in SQLite;
-- repeated employers within one poll reuse parsed trust details when an owner ID is available;
-- newly published SEO URLs can briefly return 404 while Freelancer propagates them;
-  those responses are retried automatically before the project is deferred;
-- an unavailable or changed public client panel defers only that project, using a
-  five-minute exponential retry cooldown capped at one hour;
-- Freelancer request spacing and Telegram flood-control limits remain enforced.
+- transient API errors use bounded retries and respect `Retry-After`;
+- incomplete employer data or a failed Telegram notification defers only that project, using a
+  five-minute exponential retry cooldown capped at one hour; retries occur if it remains in the feed;
+- Telegram send spacing and flood-control limits remain enforced.
+
+The feed still uses one page per poll. Increase `FREELANCER_PAGE_LIMIT` or narrow filters for a busy
+feed; the monitor does not guarantee recovery of projects that have already left that page.
+
+## Tests
+
+After installing the package, run `python -m unittest discover -s tests -v`.
+The API fixture in `tests/fixtures/active_projects.json` is based on an anonymous live response,
+with identifying project text and IDs replaced. Tests cover compact owner data, verification
+mapping, missing fields, query parameters, notification failure isolation, and duplicate suppression
+without sending messages to Telegram.

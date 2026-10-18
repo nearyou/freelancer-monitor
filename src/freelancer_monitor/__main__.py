@@ -67,10 +67,7 @@ def main() -> int:
         settings.telegram_chat_id,
         send_interval_seconds=settings.telegram_send_interval_seconds,
     )
-    freelancer = FreelancerClient(
-        settings.freelancer_api_url,
-        detail_request_delay_seconds=settings.detail_request_delay_seconds,
-    )
+    freelancer = FreelancerClient(settings.freelancer_api_url)
     monitor = Monitor(
         settings,
         freelancer,

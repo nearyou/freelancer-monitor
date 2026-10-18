@@ -1,0 +1,395 @@
+{
+  "status": "success",
+  "result": {
+    "projects": [
+      {
+        "id": 1,
+        "title": "Example API project",
+        "description": "Build an integration",
+        "seo_url": "example-api-project",
+        "jobs": [
+          {
+            "id": 3,
+            "name": "PHP",
+            "category": {
+              "id": 1,
+              "name": "Websites, IT & Software"
+            },
+            "seo_url": "php",
+            "local": false
+          },
+          {
+            "id": 10,
+            "name": "XML",
+            "category": {
+              "id": 1,
+              "name": "Websites, IT & Software"
+            },
+            "seo_url": "xml",
+            "local": false
+          },
+          {
+            "id": 13,
+            "name": "Python",
+            "category": {
+              "id": 1,
+              "name": "Websites, IT & Software"
+            },
+            "seo_url": "python",
+            "local": false
+          },
+          {
+            "id": 116,
+            "name": "Software Architecture",
+            "category": {
+              "id": 1,
+              "name": "Websites, IT & Software"
+            },
+            "seo_url": "software_architecture",
+            "local": false
+          },
+          {
+            "id": 137,
+            "name": "eCommerce",
+            "category": {
+              "id": 1,
+              "name": "Websites, IT & Software"
+            },
+            "seo_url": "ecommerce",
+            "local": false
+          },
+          {
+            "id": 1087,
+            "name": "API",
+            "category": {
+              "id": 1,
+              "name": "Websites, IT & Software"
+            },
+            "seo_url": "api",
+            "local": false
+          },
+          {
+            "id": 1658,
+            "name": "Google Sheets",
+            "category": {
+              "id": 1,
+              "name": "Websites, IT & Software"
+            },
+            "seo_url": "google_sheets",
+            "local": false
+          },
+          {
+            "id": 2791,
+            "name": "ChatGPT",
+            "category": {
+              "id": 104,
+              "name": "Artificial Intelligence"
+            },
+            "seo_url": "chatgpt",
+            "local": false
+          },
+          {
+            "id": 2917,
+            "name": "AI Chatbot",
+            "category": {
+              "id": 104,
+              "name": "Artificial Intelligence"
+            },
+            "seo_url": "ai_chatbot",
+            "local": false
+          },
+          {
+            "id": 2921,
+            "name": "AI Content Creation",
+            "category": {
+              "id": 104,
+              "name": "Artificial Intelligence"
+            },
+            "seo_url": "ai_content_creation",
+            "local": false
+          }
+        ],
+        "currency": {
+          "id": 1,
+          "code": "USD",
+          "sign": "$",
+          "name": "US Dollar",
+          "exchange_rate": 1.0,
+          "country": "US",
+          "is_external": false,
+          "is_escrowcom_supported": true
+        },
+        "budget": {
+          "minimum": 10.0,
+          "maximum": 30.0
+        },
+        "type": "fixed",
+        "submitdate": 1792342141,
+        "upgrades": {
+          "featured": false,
+          "sealed": false,
+          "nonpublic": false,
+          "fulltime": false,
+          "urgent": false,
+          "qualified": false,
+          "NDA": false,
+          "assisted": false,
+          "active_prepaid_milestone": {},
+          "ip_contract": false,
+          "non_compete": false,
+          "project_management": false,
+          "pf_only": false,
+          "recruiter": false,
+          "listed": true,
+          "premium": false,
+          "enterprise": false
+        },
+        "owner_info": {
+          "country": {
+            "name": "Japan",
+            "code": "jp"
+          },
+          "reputation": {
+            "entire_history": {
+              "overall": 0.0,
+              "positive": 0.0,
+              "category_ratings": {
+                "clarity_spec": 0.0,
+                "communication": 0.0,
+                "payment_prom": 0.0,
+                "professionalism": 0.0,
+                "work_for_again": 0.0
+              }
+            },
+            "last3months": {
+              "overall": 0.0,
+              "positive": 0.0,
+              "category_ratings": {
+                "clarity_spec": 0.0,
+                "communication": 0.0,
+                "payment_prom": 0.0,
+                "professionalism": 0.0,
+                "work_for_again": 0.0
+              }
+            },
+            "last12months": {
+              "overall": 0.0,
+              "positive": 0.0,
+              "category_ratings": {
+                "clarity_spec": 0.0,
+                "communication": 0.0,
+                "payment_prom": 0.0,
+                "professionalism": 0.0,
+                "work_for_again": 0.0
+              }
+            },
+            "role": "employer",
+            "earnings_score": 0.0
+          },
+          "status": {
+            "payment_verified": true,
+            "email_verified": true,
+            "deposit_made": true,
+            "profile_complete": false,
+            "phone_verified": true,
+            "identity_verified": false,
+            "facebook_connected": false,
+            "freelancer_verified_user": false,
+            "linkedin_connected": false,
+            "custom_charge_verified": true
+          },
+          "registration_date": 1788523200,
+          "escrowcom_interaction_required": false,
+          "enterprises": []
+        }
+      },
+      {
+        "id": 2,
+        "title": "Example API project",
+        "description": "Build an integration",
+        "seo_url": "example-api-project",
+        "jobs": [
+          {
+            "id": 3,
+            "name": "PHP",
+            "category": {
+              "id": 1,
+              "name": "Websites, IT & Software"
+            },
+            "seo_url": "php",
+            "local": false
+          },
+          {
+            "id": 69,
+            "name": "WordPress",
+            "category": {
+              "id": 1,
+              "name": "Websites, IT & Software"
+            },
+            "seo_url": "wordpress",
+            "local": false
+          },
+          {
+            "id": 224,
+            "name": "DNS",
+            "category": {
+              "id": 1,
+              "name": "Websites, IT & Software"
+            },
+            "seo_url": "dns",
+            "local": false
+          },
+          {
+            "id": 454,
+            "name": "Website Management",
+            "category": {
+              "id": 1,
+              "name": "Websites, IT & Software"
+            },
+            "seo_url": "website_management",
+            "local": false
+          },
+          {
+            "id": 564,
+            "name": "Web Hosting",
+            "category": {
+              "id": 1,
+              "name": "Websites, IT & Software"
+            },
+            "seo_url": "web_hosting",
+            "local": false
+          },
+          {
+            "id": 1832,
+            "name": "Website Optimization",
+            "category": {
+              "id": 1,
+              "name": "Websites, IT & Software"
+            },
+            "seo_url": "google_website_optimizer",
+            "local": false
+          },
+          {
+            "id": 2640,
+            "name": "cPanel",
+            "category": {
+              "id": 1,
+              "name": "Websites, IT & Software"
+            },
+            "seo_url": "cpanel",
+            "local": false
+          }
+        ],
+        "currency": {
+          "id": 8,
+          "code": "EUR",
+          "sign": "\u20ac",
+          "name": "Euro",
+          "exchange_rate": 1.12355,
+          "country": "EU",
+          "is_external": false,
+          "is_escrowcom_supported": true
+        },
+        "budget": {
+          "minimum": 30.0,
+          "maximum": 250.0
+        },
+        "type": "fixed",
+        "submitdate": 1792339996,
+        "upgrades": {
+          "featured": false,
+          "sealed": false,
+          "nonpublic": false,
+          "fulltime": false,
+          "urgent": false,
+          "qualified": false,
+          "NDA": false,
+          "assisted": false,
+          "active_prepaid_milestone": {},
+          "ip_contract": false,
+          "non_compete": false,
+          "project_management": false,
+          "pf_only": false,
+          "recruiter": false,
+          "listed": true,
+          "premium": false,
+          "enterprise": false
+        },
+        "owner_info": {
+          "country": {
+            "name": "Japan",
+            "code": "jp"
+          },
+          "reputation": {
+            "entire_history": {
+              "overall": 5.0,
+              "positive": 0.0,
+              "category_ratings": {
+                "clarity_spec": 5.0,
+                "communication": 5.0,
+                "payment_prom": 5.0,
+                "professionalism": 5.0,
+                "work_for_again": 5.0
+              },
+              "all": 9,
+              "reviews": 8,
+              "complete": 9,
+              "incomplete": 0,
+              "completion_rate": 1.0
+            },
+            "last3months": {
+              "overall": 0.0,
+              "positive": 0.0,
+              "category_ratings": {
+                "clarity_spec": 0.0,
+                "communication": 0.0,
+                "payment_prom": 0.0,
+                "professionalism": 0.0,
+                "work_for_again": 0.0
+              },
+              "all": 0,
+              "reviews": 0,
+              "complete": 0,
+              "incomplete": 0,
+              "completion_rate": 0.0
+            },
+            "last12months": {
+              "overall": 0.0,
+              "positive": 0.0,
+              "category_ratings": {
+                "clarity_spec": 0.0,
+                "communication": 0.0,
+                "payment_prom": 0.0,
+                "professionalism": 0.0,
+                "work_for_again": 0.0
+              },
+              "all": 0,
+              "reviews": 0,
+              "complete": 0,
+              "incomplete": 0,
+              "completion_rate": 0.0
+            },
+            "role": "employer",
+            "earnings_score": 3.1078
+          },
+          "status": {
+            "payment_verified": true,
+            "email_verified": true,
+            "deposit_made": true,
+            "profile_complete": false,
+            "phone_verified": true,
+            "identity_verified": false,
+            "facebook_connected": false,
+            "freelancer_verified_user": false,
+            "linkedin_connected": false,
+            "custom_charge_verified": false
+          },
+          "registration_date": 1522065600,
+          "escrowcom_interaction_required": false,
+          "enterprises": []
+        }
+      }
+    ],
+    "total_count": 2
+  }
+}

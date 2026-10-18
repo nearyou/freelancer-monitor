@@ -46,7 +46,7 @@ def format_project_message(project: Project) -> str:
         if project.hourly:
             budget += " / hour"
     rating = int(min(max(employer.rating, 0.0), 5.0) + 0.5)
-    status = lambda value: "✅" if value else "⛔"
+    status = lambda value: "❔" if value is None else "✅" if value else "⛔"
     return (
         f"<blockquote><b>{escape(project.title)}</b></blockquote>\n"
         f"<b>Listing type:</b> {escape(listing_types)}\n"
@@ -57,8 +57,10 @@ def format_project_message(project: Project) -> str:
         f"🏠 {escape(employer.country or 'Unknown')}\t ⭐ {rating}\t 💬 {employer.review_count}\t 📅 {escape(member_since)}\n"
         f"{status(employer.payment_verified)} Payment verified\n"
         f"{status(employer.deposit_made)} Deposit made\n"
-        f"{status(employer.profile_completed)} Profile Completed"
-
+        f"{status(employer.profile_completed)} Profile Completed\n"
+        f"{status(employer.identity_verified)} Identity verified\n"
+        f"{status(employer.phone_verified)} Phone verified\n"
+        f"{status(employer.email_verified)} Email verified"
     )
 
 

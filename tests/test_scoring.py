@@ -10,6 +10,11 @@ CONFIG = ScoreConfig(20, 15, 5, 15, 10, 50, 100)
 
 
 class ScoreEmployerTests(TestCase):
+    def test_extra_verifications_are_display_only(self):
+        verified = Employer(identity_verified=True, phone_verified=True, email_verified=True)
+        unverified = Employer(identity_verified=False, phone_verified=False, email_verified=False)
+        self.assertEqual(score_employer(verified, CONFIG), score_employer(unverified, CONFIG))
+
     def test_fully_trusted_old_employer_scores_65(self):
         employer = Employer(
             payment_verified=True,

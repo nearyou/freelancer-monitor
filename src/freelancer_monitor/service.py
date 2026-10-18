@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 
 from .config import Settings
 from .filters import compile_project_filter
-from .freelancer import FreelancerClient, ProjectEnrichmentError
+from .freelancer import FreelancerClient
 from .scoring import score_employer
 from .state import SeenProjectStore
 from .telegram import TelegramClient, format_project_message
@@ -82,26 +82,34 @@ class Monitor:
         notified = 0
         processed = len(unseen_projects)
         for project in matched_projects:
-            try:
-                project = self.freelancer.enrich_from_public_page(project)
-            except ProjectEnrichmentError as exc:
+            if not project.employer_data_complete:
                 attempts, retry_seconds = self.store.record_project_failure(
-                    project.id, str(exc)
+                    project.id, "API response is missing required employer trust data"
                 )
                 logger.warning(
-                    "Deferred project %s for %s seconds after enrichment failure "
-                    "(attempt %s): %s",
+                    "Deferred project %s for %s seconds: incomplete API employer data "
+                    "(attempt %s)",
                     project.id,
                     retry_seconds,
                     attempts,
-                    exc,
                 )
                 continue
             score = score_employer(project.employer, self.settings.score)
             should_notify = score.total >= threshold
             if should_notify:
                 message = format_project_message(project)
-                self.telegram.send_message(message, button_url=project.url)
+                try:
+                    self.telegram.send_message(message, button_url=project.url)
+                except (OSError, RuntimeError, ValueError) as exc:
+                    attempts, retry_seconds = self.store.record_project_failure(
+                        project.id, f"Telegram notification failed: {exc}"
+                    )
+                    logger.warning(
+                        "Deferred project %s for %s seconds after Telegram failure "
+                        "(attempt %s): %s",
+                        project.id, retry_seconds, attempts, exc,
+                    )
+                    continue
                 notified += 1
                 logger.info("Notified project %s with score %.2f", project.id, score.total)
             else:

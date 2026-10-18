@@ -13,6 +13,9 @@ class Employer:
     rating: float = 0.0
     review_count: int = 0
     member_since: datetime | None = None
+    identity_verified: bool | None = None
+    phone_verified: bool | None = None
+    email_verified: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -30,6 +33,7 @@ class Project:
     hourly: bool = False
     submitted_at: datetime | None = None
     employer: Employer = field(default_factory=Employer)
+    employer_data_complete: bool = True
 
 
 @dataclass(frozen=True)

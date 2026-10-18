@@ -1,13 +1,10 @@
 from __future__ import annotations
 
 import logging
-import re
-import time
-from dataclasses import replace
+import math
 from datetime import datetime, timezone
-from html.parser import HTMLParser
 from typing import Any
-from urllib.parse import urljoin
+from urllib.parse import parse_qs, urljoin, urlsplit, urlunsplit
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -17,168 +14,9 @@ from .models import Employer, Project
 
 logger = logging.getLogger(__name__)
 
-_CLIENT_SECTION_START = "<app-project-view-logged-out-client-info"
-_CLIENT_SECTION_END = "</app-project-view-logged-out-client-info>"
-_NUMBER_RE = re.compile(r"\d+(?:\.\d+)?")
-_MEMBER_SINCE_RE = re.compile(
-    r"\bMember since\s+([A-Z][a-z]{2,8}\s+\d{1,2},\s+\d{4})\b"
-)
 
-
-def _extract_client_section(html: str) -> str:
-    start = html.find(_CLIENT_SECTION_START)
-    if start < 0:
-        raise EmployerPageParseError("Public project page has no client-information section")
-    end = html.find(_CLIENT_SECTION_END, start)
-    if end < 0:
-        return html[start:]
-    return html[start : end + len(_CLIENT_SECTION_END)]
-
-
-class ProjectEnrichmentError(RuntimeError):
-    """Raised when one project's public detail page cannot be enriched safely."""
-
-
-class EmployerPageParseError(ProjectEnrichmentError):
-    """Raised when a public project page does not expose its client information."""
-
-
-class _EmployerPageParser(HTMLParser):
-    """Extract semantic client fields from Freelancer's server-rendered HTML."""
-
-    def __init__(self) -> None:
-        super().__init__(convert_charrefs=True)
-        self.scope_depth = 0
-        self.scope_started = False
-        self.capture: str | None = None
-        self.capture_depth = 0
-        self.capture_text: list[str] = []
-        self.all_text: list[str] = []
-        self.icon_label: str | None = None
-        self.icon_depth = 0
-        self.icon_success = False
-        self.icons: dict[str, bool] = {}
-        self.rating: float | None = None
-        self.reviews: int | None = None
-
-    @staticmethod
-    def _attrs(attrs: list[tuple[str, str | None]]) -> dict[str, str]:
-        return {key.lower(): value or "" for key, value in attrs}
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        tag = tag.lower()
-        attributes = self._attrs(attrs)
-        if tag == "app-project-view-logged-out-client-info":
-            self.scope_started = True
-            self.scope_depth = 1
-            return
-        if not self.scope_depth:
-            return
-        self.scope_depth += 1
-
-        if self.capture:
-            self.capture_depth += 1
-        elif tag == "fl-rating":
-            self.capture = "rating"
-            self.capture_depth = 1
-            self.capture_text = []
-        elif tag == "fl-review-count":
-            self.capture = "reviews"
-            self.capture_depth = 1
-            self.capture_text = []
-
-        if self.icon_label:
-            self.icon_depth += 1
-            if attributes.get("data-color", "").lower() == "success":
-                self.icon_success = True
-        elif tag == "fl-icon" and attributes.get("aria-label"):
-            self.icon_label = attributes["aria-label"].strip().casefold()
-            self.icon_depth = 1
-            self.icon_success = attributes.get("data-color", "").lower() == "success"
-
-    def handle_endtag(self, tag: str) -> None:
-        if not self.scope_depth:
-            return
-
-        if self.capture:
-            self.capture_depth -= 1
-            if self.capture_depth == 0:
-                text = " ".join(self.capture_text)
-                numbers = _NUMBER_RE.findall(text)
-                if numbers and self.capture == "rating":
-                    self.rating = float(numbers[-1])
-                elif numbers and self.capture == "reviews":
-                    self.reviews = int(float(numbers[-1]))
-                self.capture = None
-                self.capture_text = []
-
-        if self.icon_label:
-            self.icon_depth -= 1
-            if self.icon_depth == 0:
-                self.icons[self.icon_label] = self.icon_success
-                self.icon_label = None
-                self.icon_success = False
-
-        self.scope_depth -= 1
-
-    def handle_data(self, data: str) -> None:
-        if not self.scope_depth:
-            return
-        text = data.strip()
-        if text:
-            self.all_text.append(text)
-            if self.capture:
-                self.capture_text.append(text)
-
-    @property
-    def text(self) -> str:
-        return " ".join(self.all_text)
-
-
-def parse_employer_page(html: str) -> Employer:
-    parser = _EmployerPageParser()
-    parser.feed(_extract_client_section(html))
-    if not parser.scope_started:
-        raise EmployerPageParseError("Public project page has no client-information section")
-
-    member_match = _MEMBER_SINCE_RE.search(parser.text)
-    member_since = None
-    if member_match:
-        for pattern in ("%b %d, %Y", "%B %d, %Y"):
-            try:
-                member_since = datetime.strptime(member_match.group(1), pattern).replace(
-                    tzinfo=timezone.utc
-                )
-                break
-            except ValueError:
-                continue
-
-    def verified(*labels: str) -> bool:
-        return any(parser.icons.get(label.casefold(), False) for label in labels)
-
-    country = ""
-    try:
-        about_index = parser.all_text.index("About the client")
-        location = " ".join(parser.all_text[about_index + 1].split())
-        country = location.rsplit(",", 1)[-1].strip()
-    except (ValueError, IndexError):
-        pass
-
-    if parser.rating is None or parser.reviews is None or member_since is None:
-        raise EmployerPageParseError(
-            "Public client section is missing rating, review count, or member-since date"
-        )
-    return Employer(
-        country=country,
-        # Freelancer's public client markers are exposed under the opposite
-        # labels from the trust fields used by the bot.
-        payment_verified=verified("Deposit made"),
-        deposit_made=verified("Payment verified"),
-        profile_completed=verified("Profile complete", "Profile completed"),
-        rating=parser.rating,
-        review_count=parser.reviews,
-        member_since=member_since,
-    )
+class FreelancerAPIError(RuntimeError):
+    """The API returned an error or an unexpected response structure."""
 
 
 def _as_bool(value: Any) -> bool:
@@ -187,6 +25,18 @@ def _as_bool(value: Any) -> bool:
     if isinstance(value, (int, float)):
         return value > 0
     return str(value).strip().lower() in {"1", "true", "yes", "verified"}
+
+
+def _verification(value: Any) -> bool | None:
+    """Keep absent or malformed verification states distinct from false."""
+    if isinstance(value, bool):
+        return value
+    normalized = str(value).strip().casefold()
+    if normalized in {"1", "true", "yes", "verified"}:
+        return True
+    if normalized in {"0", "false", "no", "unverified"}:
+        return False
+    return None
 
 
 def _first(mapping: dict[str, Any], *paths: str, default: Any = None) -> Any:
@@ -205,21 +55,22 @@ def _first(mapping: dict[str, Any], *paths: str, default: Any = None) -> Any:
 def _datetime(value: Any) -> datetime | None:
     if value in (None, ""):
         return None
-    if isinstance(value, (int, float)):
-        return datetime.fromtimestamp(value, tz=timezone.utc)
     text = str(value).strip()
     try:
+        if isinstance(value, (int, float)):
+            return datetime.fromtimestamp(value, tz=timezone.utc)
         if text.isdigit():
             return datetime.fromtimestamp(int(text), tz=timezone.utc)
         return datetime.fromisoformat(text.replace("Z", "+00:00"))
-    except (ValueError, OSError):
+    except (ValueError, OSError, OverflowError):
         logger.debug("Could not parse date value %r", value)
         return None
 
 
 def _number(value: Any, default: float = 0.0) -> float:
     try:
-        return float(value)
+        number = float(value)
+        return number if math.isfinite(number) else default
     except (TypeError, ValueError):
         return default
 
@@ -262,14 +113,12 @@ class FreelancerClient:
         self,
         api_url: str,
         timeout: int = 30,
-        detail_request_delay_seconds: float = 1.0,
         session: requests.Session | None = None,
     ):
-        self.api_url = api_url
+        parts = urlsplit(api_url)
+        self.api_url = urlunsplit((parts.scheme, parts.netloc, parts.path.rstrip("/"), "", ""))
+        self._query_parameters = parse_qs(parts.query, keep_blank_values=True)
         self.timeout = timeout
-        self.detail_request_delay_seconds = detail_request_delay_seconds
-        self._last_detail_request_at = 0.0
-        self._employer_cache: dict[int, Employer] = {}
         self._resolved_skill_names: tuple[str, ...] | None = None
         self._resolved_skill_ids: tuple[int, ...] = ()
         self.session = session or self._build_session()
@@ -282,9 +131,7 @@ class FreelancerClient:
             read=2,
             status=2,
             backoff_factor=0.5,
-            # Freelancer can briefly return 404 while a new SEO route is
-            # propagating across its edge nodes.
-            status_forcelist=(404, 429, 500, 502, 503, 504),
+            status_forcelist=(429, 500, 502, 503, 504),
             allowed_methods=frozenset({"GET"}),
             respect_retry_after_header=True,
         )
@@ -316,7 +163,7 @@ class FreelancerClient:
             return ()
 
         response = self.session.get(
-            urljoin(self.api_url, "../../jobs/"),
+            urljoin(self.api_url + "/", "../../jobs/"),
             params={"job_names[]": list(normalized_names)},
             headers={"Accept": "application/json"},
             timeout=self.timeout,
@@ -350,14 +197,20 @@ class FreelancerClient:
         skill_ids: tuple[int, ...] = (),
         languages: tuple[str, ...] = (),
     ) -> list[Project]:
-        self._employer_cache.clear()
         parameters = {
+            **self._query_parameters,
             "limit": limit,
             "full_description": "true",
             "job_details": "true",
-            "user_details": "true",
-            "user_employer_reputation": "true",
-            "sort_field": "time_updated",
+            "local_details": "true",
+            "location_details": "true",
+            "upgrade_details": "true",
+            "owner_info": "true",
+            "webapp": "1",
+            "compact": "true",
+            "new_errors": "true",
+            "new_pools": "true",
+            "sort_field": "submitdate",
             "or_search_query": "true",
         }
         # Freelancer applies all repeated jobs/languages in one server-side
@@ -378,56 +231,38 @@ class FreelancerClient:
         response.raise_for_status()
         return parse_projects_response(response.json())
 
-    def enrich_from_public_page(self, project: Project) -> Project:
-        if project.owner_id is not None and project.owner_id in self._employer_cache:
-            return replace(project, employer=self._employer_cache[project.owner_id])
-        elapsed = time.monotonic() - self._last_detail_request_at
-        remaining = self.detail_request_delay_seconds - elapsed
-        if remaining > 0:
-            time.sleep(remaining)
-        try:
-            try:
-                response = self.session.get(
-                    project.url,
-                    headers={
-                        "Accept": "text/html,application/xhtml+xml",
-                        "Accept-Language": "en-US,en;q=0.9",
-                    },
-                    timeout=self.timeout,
-                )
-                response.raise_for_status()
-                html = response.text
-            except requests.RequestException as exc:
-                raise ProjectEnrichmentError(
-                    f"Public project page request failed: {exc}"
-                ) from exc
-        finally:
-            self._last_detail_request_at = time.monotonic()
-        employer = parse_employer_page(html)
-        if project.owner_id is not None:
-            self._employer_cache[project.owner_id] = employer
-        return replace(project, employer=employer)
-
     def close(self) -> None:
         self.session.close()
 
 
 def parse_projects_response(payload: dict[str, Any]) -> list[Project]:
+    if not isinstance(payload, dict) or payload.get("status", "success") != "success":
+        raise FreelancerAPIError("Freelancer returned an unsuccessful project response")
     result = payload.get("result", payload)
-    raw_projects = result.get("projects", []) if isinstance(result, dict) else []
-    raw_users = result.get("users", {}) if isinstance(result, dict) else {}
+    if not isinstance(result, dict) or not isinstance(result.get("projects"), list):
+        raise FreelancerAPIError("Freelancer response has no projects list")
+    raw_projects = result["projects"]
+    raw_users = result.get("users", {})
     if isinstance(raw_users, list):
         users = {str(user.get("id")): user for user in raw_users if isinstance(user, dict)}
-    else:
+    elif isinstance(raw_users, dict):
         users = {str(key): value for key, value in raw_users.items()}
+    else:
+        users = {}
 
     projects: list[Project] = []
     for raw in raw_projects:
         if not isinstance(raw, dict) or "id" not in raw:
             continue
         owner_id = _first(raw, "owner_id", "owner.id")
-        user = users.get(str(owner_id), {})
-        status = user.get("status", {}) if isinstance(user, dict) else {}
+        # Anonymous active-project responses embed trust data in owner_info;
+        # older/authenticated responses may instead include a users map.
+        user = raw.get("owner_info")
+        if not isinstance(user, dict) or not user:
+            user = users.get(str(owner_id), {})
+        if not isinstance(user, dict):
+            user = {}
+        status = user.get("status", {})
         reputation = _first(
             user,
             "employer_reputation.entire_history",
@@ -438,8 +273,19 @@ def parse_projects_response(payload: dict[str, Any]) -> list[Project]:
         if not isinstance(reputation, dict):
             reputation = {}
 
-        rating = _number(_first(reputation, "overall", "rating", default=0))
-        reviews = int(_number(_first(reputation, "reviews", "review_count", "count", default=0)))
+        rating = _number(_first(reputation, "overall", "rating"), default=-1)
+        # compact=true omits zero-count review fields for unrated employers.
+        raw_reviews = _first(reputation, "reviews", "review_count", "count")
+        reviews = 0 if raw_reviews is None and rating == 0 else _number(raw_reviews, default=-1)
+        payment = _verification(_first(status, "payment_verified"))
+        deposit = _verification(_first(status, "deposit_made"))
+        profile = _verification(_first(status, "profile_complete", "profile_completed"))
+        member_since = _datetime(_first(user, "registration_date", "member_since", "created_at"))
+        employer_data_complete = (
+            payment is not None and deposit is not None and profile is not None
+            and 0 <= rating <= 5 and reviews >= 0 and reviews == int(reviews)
+            and member_since is not None
+        )
         employer = Employer(
             country=str(
                 _first(
@@ -447,34 +293,22 @@ def parse_projects_response(payload: dict[str, Any]) -> list[Project]:
                     "location.country.name",
                     "location.country.code",
                     "country.name",
+                    "country.code",
                     default="",
                 )
             ),
-            payment_verified=_as_bool(
-                _first(status, "deposit_made", default=_first(user, "deposit_made", default=False))
-            ),
-            deposit_made=_as_bool(
-                _first(status, "payment_verified", default=_first(user, "payment_verified", default=False))
-            ),
-            profile_completed=_as_bool(
-                _first(
-                    status,
-                    "profile_complete",
-                    "profile_completed",
-                    default=_first(
-                        user,
-                        "profile_complete",
-                        "profile_completed",
-                        default=False,
-                    ),
-                )
-            ),
-            rating=rating,
-            review_count=reviews,
-            member_since=_datetime(_first(user, "registration_date", "member_since", "created_at")),
+            payment_verified=payment is True,
+            deposit_made=deposit is True,
+            profile_completed=profile is True,
+            rating=max(rating, 0),
+            review_count=int(max(reviews, 0)),
+            member_since=member_since,
+            identity_verified=_verification(_first(status, "identity_verified")),
+            phone_verified=_verification(_first(status, "phone_verified")),
+            email_verified=_verification(_first(status, "email_verified")),
         )
 
-        jobs = raw.get("jobs", [])
+        jobs = raw.get("jobs") or []
         skills = tuple(
             str(_first(job, "name", "seo_url", default="")).strip()
             for job in jobs
@@ -483,7 +317,7 @@ def parse_projects_response(payload: dict[str, Any]) -> list[Project]:
         budget = raw.get("budget", {}) if isinstance(raw.get("budget"), dict) else {}
         currency = raw.get("currency", {}) if isinstance(raw.get("currency"), dict) else {}
         project_id = int(raw["id"])
-        seo_url = str(raw.get("seo_url", "")).strip("/")
+        seo_url = str(raw.get("seo_url") or "").strip("/")
         url = f"https://www.freelancer.com/projects/{seo_url}" if seo_url else f"https://www.freelancer.com/projects/{project_id}"
         projects.append(
             Project(
@@ -495,11 +329,12 @@ def parse_projects_response(payload: dict[str, Any]) -> list[Project]:
                 skills=skills,
                 listing_types=_listing_types(raw),
                 currency_code=str(_first(currency, "code", default="")),
-                budget_min=_number(budget.get("minimum"), default=0.0) if "minimum" in budget else None,
-                budget_max=_number(budget.get("maximum"), default=0.0) if "maximum" in budget else None,
+                budget_min=_number(budget["minimum"]) if budget.get("minimum") is not None else None,
+                budget_max=_number(budget["maximum"]) if budget.get("maximum") is not None else None,
                 hourly=str(raw.get("type", "")).lower() == "hourly",
                 submitted_at=_datetime(_first(raw, "submitdate", "time_submitted", "time_updated")),
                 employer=employer,
+                employer_data_complete=employer_data_complete,
             )
         )
     return projects

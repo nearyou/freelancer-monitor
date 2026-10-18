@@ -29,6 +29,9 @@ class TelegramMessageTests(TestCase):
                 rating=4.8,
                 review_count=12,
                 member_since=datetime(2020, 5, 3, tzinfo=timezone.utc),
+                identity_verified=True,
+                phone_verified=False,
+                email_verified=True,
             ),
         )
 
@@ -48,7 +51,9 @@ class TelegramMessageTests(TestCase):
         self.assertIn("✅ Payment verified", message)
         self.assertIn("⛔ Deposit made", message)
         self.assertIn("✅ Profile Completed", message)
-        self.assertNotIn("Identity verified", message)
+        self.assertIn("✅ Identity verified", message)
+        self.assertIn("⛔ Phone verified", message)
+        self.assertIn("✅ Email verified", message)
         self.assertLess(message.index("Deposit made"), message.index("Profile Completed"))
         self.assertNotIn("https://www.freelancer.com/projects/42", message)
         self.assertNotIn("Open project", message)
@@ -74,6 +79,9 @@ class TelegramMessageTests(TestCase):
         self.assertIn("<b>Payment Type:</b> Hourly rate", message)
         self.assertIn("<b>Listing type:</b> Standard", message)
         self.assertIn("<b>Budget:</b> 15–25 USD / hour", message)
+        self.assertIn("❔ Identity verified", message)
+        self.assertIn("❔ Phone verified", message)
+        self.assertIn("❔ Email verified", message)
 
     def test_project_url_is_sent_as_inline_button(self):
         success = io.BytesIO(json.dumps({"ok": True}).encode("utf-8"))

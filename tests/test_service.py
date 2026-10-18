@@ -1,11 +1,12 @@
+import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
-from unittest import TestCase
+from unittest import TestCase, mock
 
 from freelancer_monitor.config import ScoreConfig
-from freelancer_monitor.freelancer import EmployerPageParseError
+from freelancer_monitor.freelancer import FreelancerClient
 from freelancer_monitor.models import Employer, Project
 from freelancer_monitor.service import Monitor, is_project_stale
 from freelancer_monitor.state import SeenProjectStore
@@ -14,19 +15,12 @@ from freelancer_monitor.state import SeenProjectStore
 class _Freelancer:
     def __init__(self, projects):
         self.projects = projects
-        self.enriched_ids = []
 
     def fetch_active_projects(self, _limit, **_filters):
         return self.projects
 
     def resolve_skill_ids(self, _skills):
         return ()
-
-    def enrich_from_public_page(self, project):
-        self.enriched_ids.append(project.id)
-        if project.id == 1:
-            raise EmployerPageParseError("Public page has no client-information section")
-        return project
 
 
 class _Telegram:
@@ -38,6 +32,60 @@ class _Telegram:
 
 
 class MonitorResilienceTests(TestCase):
+    def test_api_to_notification_uses_one_request_and_deduplicates(self):
+        payload = json.loads(
+            (Path(__file__).parent / "fixtures" / "active_projects.json").read_text(encoding="utf-8")
+        )
+        for project in payload["result"]["projects"]:
+            project["submitdate"] = datetime.now(timezone.utc).timestamp()
+        session = mock.Mock()
+        session.get.return_value.json.return_value = payload
+        freelancer = FreelancerClient("https://example.test/api", session=session)
+        telegram = _Telegram()
+        settings = SimpleNamespace(
+            page_limit=50, filter_match_mode="any",
+            score=ScoreConfig(20, 15, 5, 15, 10, 50, 100),
+        )
+        with TemporaryDirectory() as directory:
+            store = SeenProjectStore(Path(directory) / "state.db")
+            try:
+                store.initialize_preferences(skills=(), search_words=(), threshold=0)
+                monitor = Monitor(settings, freelancer, telegram, store)
+                self.assertEqual(monitor.run_once(), (2, 2))
+                self.assertEqual(session.get.call_count, 1)
+                self.assertIn("Phone verified", telegram.messages[0][0])
+                self.assertEqual(monitor.run_once(), (0, 0))
+                self.assertEqual(len(telegram.messages), 2)
+                self.assertEqual(session.get.call_count, 2)
+            finally:
+                freelancer.close()
+                store.close()
+
+    def test_notification_failure_defers_only_that_project_and_can_retry(self):
+        projects = [Project(i, "Example", "", f"https://example/{i}") for i in (1, 2)]
+        freelancer = _Freelancer(projects)
+        telegram = mock.Mock()
+        telegram.send_message.side_effect = [OSError("connection failed"), None, None]
+        settings = SimpleNamespace(
+            page_limit=50, filter_match_mode="any",
+            score=ScoreConfig(20, 15, 5, 15, 10, 50, 100),
+        )
+        with TemporaryDirectory() as directory:
+            store = SeenProjectStore(Path(directory) / "state.db")
+            try:
+                store.initialize_preferences(skills=(), search_words=(), threshold=0)
+                monitor = Monitor(settings, freelancer, telegram, store)
+                self.assertEqual(monitor.run_once(), (2, 1))
+                self.assertFalse(store.has_seen(1))
+                self.assertTrue(store.has_seen(2))
+                self.assertEqual(store.deferred_project_ids([1]), {1})
+                self.assertEqual(monitor.run_once(), (0, 0))
+                store.clear_project_failure(1)
+                self.assertEqual(monitor.run_once(), (1, 1))
+                self.assertTrue(store.has_seen(1))
+            finally:
+                store.close()
+
     def test_projects_posted_one_hour_or_more_ago_are_stale(self):
         now = datetime(2026, 8, 3, 12, 0, tzinfo=timezone.utc)
         project = Project(
@@ -68,7 +116,7 @@ class MonitorResilienceTests(TestCase):
             )
         )
 
-    def test_stale_project_is_marked_seen_without_page_enrichment(self):
+    def test_stale_project_is_marked_seen_without_notification(self):
         stale_project = Project(
             id=3,
             title="Old project",
@@ -92,14 +140,14 @@ class MonitorResilienceTests(TestCase):
 
                 self.assertEqual(monitor.run_once(), (1, 0))
                 self.assertTrue(store.has_seen(3))
-                self.assertEqual(freelancer.enriched_ids, [])
                 self.assertEqual(telegram.messages, [])
             finally:
                 store.close()
 
-    def test_one_unparseable_page_does_not_abort_other_projects(self):
+    def test_missing_api_employer_does_not_abort_other_projects(self):
         projects = [
-            Project(id=1, title="Unavailable", description="", url="https://example/1"),
+            Project(id=1, title="Unavailable", description="", url="https://example/1",
+                    employer_data_complete=False),
             Project(
                 id=2,
                 title="Valid",
@@ -133,6 +181,5 @@ class MonitorResilienceTests(TestCase):
                 self.assertEqual(len(telegram.messages), 1)
 
                 self.assertEqual(monitor.run_once(), (0, 0))
-                self.assertEqual(freelancer.enriched_ids, [1, 2])
             finally:
                 store.close()
