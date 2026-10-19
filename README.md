@@ -7,7 +7,7 @@ Telegram.
 ## Trust score
 
 The default score is out of 65. Manage every owner-score weight, cap, and threshold in Telegram
-with `/show_score`, `/set_score <setting> <value>`, and `/set_threshold <score>`.
+with `/show_score`, individual commands such as `/set_payment_verified <value>`, and `/set_threshold <score>`.
 
 | Signal | Default maximum | Calculation |
 |---|---:|---|
@@ -99,7 +99,7 @@ Telegram displays verification states in three paired rows: identity/email, paym
 and deposit/phone. Each row uses inline fixed-width text with a padded first column, keeping the
 columns aligned without a preformatted block's Copy header or indentation. Narrow screens or
 large text sizes may still wrap long rows. Identity,
-phone, and email have zero score weight by default; enable them with `/set_score`. Missing
+phone, and email have zero score weight by default; enable them with `/set_identity_verified`, `/set_phone_verified`, and `/set_email_verified`. Missing
 optional verification states use a question mark. When their weight is positive, missing states
 defer the project for an employer-data retry. Payment and deposit map directly to their
 API names, replacing the old HTML label swap; scores can therefore differ for employers with only
@@ -124,7 +124,7 @@ the saved threshold exceeds the new maximum; adjust the weights or threshold bef
 
 Send these commands to the bot from the chat configured by `TELEGRAM_CHAT_ID`:
 
-When running continuously, the bot registers all 13 commands with short descriptions in that chat.
+When running continuously, the bot registers all 23 commands with short descriptions in that chat.
 Type `/` to see Telegram's command suggestions. Select a command, then add its arguments where
 needed (for example `/add_skill Python`). Menu registration retries after 60 seconds if unavailable;
 project polling and message delivery continue. `--once` and `--check-config` do not register the menu.
@@ -142,28 +142,28 @@ project polling and message delivery continue. `--once` and `--check-config` do 
 /set_threshold 65
 
 /show_score
-/set_score payment_verified 20
-/set_score deposit_made 15
-/set_score profile_completed 5
-/set_score identity_verified 10
-/set_score phone_verified 5
-/set_score email_verified 5
-/set_score rating_max 10
-/set_score reviews_max 15
-/set_score reviews_cap 50
-/set_score member_age_max 10
-/set_score member_age_max_days 100
+/set_payment_verified 20
+/set_deposit_made 15
+/set_profile_completed 5
+/set_identity_verified 10
+/set_phone_verified 5
+/set_email_verified 5
+/set_rating_max 10
+/set_reviews_max 15
+/set_reviews_cap 50
+/set_member_age_max 10
+/set_member_age_max_days 100
 
 /clear_history
 /help
 ```
 
 Commands from every other chat ID are ignored. Changes apply to the next project poll without a
-restart, with one consistent scoring configuration used for each batch. The `/set_score` examples
+restart, with one consistent scoring configuration used for each batch. The individual scoring command examples
 above demonstrate every setting; they enable the optional signals and increase the maximum to 95.
 Use `/show_score` to see your current values. The threshold must be between zero and the current
 maximum. Before reducing weights below your threshold, lower the threshold first with `/set_threshold`.
-Invalid settings leave the saved configuration unchanged.
+Invalid settings leave the saved configuration unchanged. Selecting a scoring command without a value shows its usage and current value. The old `/set_score <setting> <value>` syntax remains supported for compatibility but is omitted from the menu.
 
 Score changes affect newly processed projects; they do not rescore processed IDs or queued alerts.
 Use `/clear_history` to reconsider processed projects still in the feed (which can resend prior alerts).

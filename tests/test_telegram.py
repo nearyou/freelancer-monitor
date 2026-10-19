@@ -22,7 +22,10 @@ class TelegramMessageTests(TestCase):
         commands = json.loads(parameters["commands"][0])
         self.assertEqual({item["command"] for item in commands}, {
             "show_skills", "add_skill", "delete_skill", "show_search_words", "add_search_word",
-            "delete_search_word", "show_score", "set_score", "show_threshold", "set_threshold",
+            "delete_search_word", "show_score", "show_threshold", "set_threshold",
+            "set_payment_verified", "set_deposit_made", "set_profile_completed",
+            "set_identity_verified", "set_phone_verified", "set_email_verified", "set_rating_max",
+            "set_reviews_max", "set_reviews_cap", "set_member_age_max", "set_member_age_max_days",
             "clear_history", "help", "start",
         })
         for command in commands:

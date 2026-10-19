@@ -31,10 +31,14 @@ class ScoringSettingsTests(TestCase):
         for name, default in asdict(ScoreConfig()).items():
             value = default + 1
             with self.subTest(setting=name):
-                response = self.commands.handle_command(f"/set_score {name} {value}")
+                response = self.commands.handle_command(f"/set_{name}@TestBot {value}")
                 self.assertIn(f"Set <code>{name}</code>", response)
                 self.assertEqual(getattr(self.store.get_scoring_settings()[0], name), value)
                 self.assertIn(f"<code>{name}</code>: {value}", self.commands.handle_command("/show_score"))
+                self.assertIn(f"/set_{name}", self.commands.handle_command("/help"))
+                usage = self.commands.handle_command(f"/set_{name}")
+                self.assertIn(f"Usage: /set_{name}", usage)
+                self.assertIn(f"Current value: <b>{value}</b>", usage)
         saved = self.store.get_scoring_settings()
         other = SeenProjectStore(self.path)
         self.addCleanup(other.close)
@@ -51,6 +55,9 @@ class ScoringSettingsTests(TestCase):
             "/set_score member_age_max_days -2", "/set_score member_age_max_days 2.5",
             "/set_threshold nan", "/set_threshold inf", "/set_threshold -1",
             "/set_threshold 66", "/set_threshold abc",
+            "/set_identity_verified nan", "/set_phone_verified -1", "/set_email_verified inf",
+            "/set_reviews_cap 0", "/set_member_age_max_days 2.5", "/set_rating_max 2 3",
+            "/set_payment_verified 0",
         ]
         for command in commands:
             with self.subTest(command=command):
@@ -82,8 +89,8 @@ class ScoringSettingsTests(TestCase):
 
     def test_other_chats_cannot_change_scoring(self):
         self.telegram.get_updates.return_value = [
-            {"update_id": 1, "message": {"chat": {"id": 999}, "text": "/set_score identity_verified 30"}},
-            {"update_id": 2, "message": {"chat": {"id": 123}, "text": "/set_score identity_verified 10"}},
+            {"update_id": 1, "message": {"chat": {"id": 999}, "text": "/set_identity_verified 30"}},
+            {"update_id": 2, "message": {"chat": {"id": 123}, "text": "/set_identity_verified 10"}},
         ]
         self.assertEqual(self.commands.poll_once(timeout_seconds=0), 1)
         self.assertEqual(self.store.get_scoring_settings()[0].identity_verified, 10)

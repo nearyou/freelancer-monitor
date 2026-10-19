@@ -10,6 +10,20 @@ from .telegram import TelegramClient
 
 logger = logging.getLogger(__name__)
 
+SCORE_COMMANDS = {
+    "payment_verified": "Set payment verification points",
+    "deposit_made": "Set deposit points",
+    "profile_completed": "Set completed profile points",
+    "identity_verified": "Set identity verification points",
+    "phone_verified": "Set phone verification points",
+    "email_verified": "Set email verification points",
+    "rating_max": "Set maximum rating points",
+    "reviews_max": "Set maximum review points",
+    "reviews_cap": "Set review count for maximum points",
+    "member_age_max": "Set maximum account age points",
+    "member_age_max_days": "Set account age in days for maximum points",
+}
+
 BOT_COMMANDS = (
     ("show_skills", "Show monitored skills"),
     ("add_skill", "Add a monitored skill"),
@@ -18,7 +32,7 @@ BOT_COMMANDS = (
     ("add_search_word", "Add a search keyword"),
     ("delete_search_word", "Delete a search keyword"),
     ("show_score", "Show owner scoring settings"),
-    ("set_score", "Change a scoring weight or cap"),
+    *((f"set_{name}", description) for name, description in SCORE_COMMANDS.items()),
     ("show_threshold", "Show the minimum project score"),
     ("set_threshold", "Change the minimum project score"),
     ("clear_history", "Clear history; projects may notify again"),
@@ -104,23 +118,37 @@ class TelegramCommandProcessor:
         if command == "/show_score":
             config, threshold = self.store.get_scoring_settings()
             lines = ["<b>Owner scoring</b>", f"Threshold: <b>{threshold:g}</b> / {config.maximum:g} maximum"]
-            lines.extend(f"<code>{field.name}</code>: {getattr(config, field.name):g}" for field in fields(config))
+            lines.extend(
+                f"<code>{field.name}</code>: {getattr(config, field.name):g} — /set_{field.name}"
+                for field in fields(config)
+            )
             lines.extend([
                 "", "Weights are points; 0 disables a signal.",
                 "reviews_cap: review count for maximum points.",
                 "member_age_max_days: account age in days for maximum points.",
                 "rating_max: maximum points at 5 stars (linear).",
-                "", "/set_score &lt;setting&gt; &lt;value&gt;", "/set_threshold &lt;score&gt;",
+                "", "Use a /set_ command followed by a value.", "/set_threshold &lt;score&gt;",
             ])
             if threshold > config.maximum:
                 lines.append("Threshold exceeds maximum; use /set_threshold to enable alerts.")
             return "\n".join(lines)
-        if command == "/set_score":
+        score_setting = command.removeprefix("/set_") if command.startswith("/set_") else None
+        if command == "/set_score" or score_setting in SCORE_COMMANDS:
             parts = argument.split()
-            if len(parts) != 2:
-                return "Usage: /set_score &lt;setting&gt; &lt;value&gt;. Use /show_score for settings."
-            name, value = parts
-            name = name.casefold()
+            if score_setting in SCORE_COMMANDS:
+                if len(parts) != 1:
+                    config, _ = self.store.get_scoring_settings()
+                    return (
+                        f"Usage: {escape(command)} &lt;value&gt;\n"
+                        f"{SCORE_COMMANDS[score_setting]}. Current value: <b>{getattr(config, score_setting):g}</b>."
+                    )
+                name, value = score_setting, parts[0]
+            else:
+                # Keep previously documented commands working, but show individual setters in the menu.
+                if len(parts) != 2:
+                    return "Usage: /set_score &lt;setting&gt; &lt;value&gt;. Use /show_score for settings."
+                name, value = parts
+                name = name.casefold()
             try:
                 config, threshold = self.store.set_score_setting(name, value)
             except ValueError as exc:
@@ -143,12 +171,16 @@ class TelegramCommandProcessor:
                 return escape(str(exc))
             return f"Score threshold set to <b>{threshold:g}</b>."
         if command in {"/start", "/help"}:
+            score_help = "\n".join(
+                f"/set_{name} &lt;value&gt; — {description}"
+                for name, description in SCORE_COMMANDS.items()
+            )
             return (
                 "<b>Filter commands</b>\n"
                 "/show_skills\n/add_skill &lt;skill&gt;\n/delete_skill &lt;skill&gt;\n\n"
                 "/show_search_words\n/add_search_word &lt;word&gt;\n"
                 "/delete_search_word &lt;word&gt;\n\n"
-                "/show_score\n/set_score &lt;setting&gt; &lt;value&gt;\n"
+                f"/show_score\n{score_help}\n"
                 "/show_threshold\n/set_threshold &lt;score&gt;\n\n"
                 "/clear_history"
             )
