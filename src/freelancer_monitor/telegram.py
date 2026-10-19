@@ -56,13 +56,12 @@ def format_project_message(project: Project) -> str:
         f"<b>Posted:</b> {escape(posted_at)}\n"
         f"━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
         f"🏠 {escape(employer.country or 'Unknown')}\t ⭐ {rating}\t 💬 {employer.review_count}\t 📅 {escape(member_since)}\n"
-        # Telegram's preformatted block preserves the column spacing.
-        f"<pre>{status(employer.identity_verified)} {'Identity verified':<17}  "
+        f"{status(employer.identity_verified)} {'Identity verified':<17}  "
         f"{status(employer.email_verified)} Email verified\n"
         f"{status(employer.payment_verified)} {'Payment verified':<17}  "
         f"{status(employer.profile_completed)} Profile completed\n"
         f"{status(employer.deposit_made)} {'Deposit made':<17}  "
-        f"{status(employer.phone_verified)} Phone verified</pre>"
+        f"{status(employer.phone_verified)} Phone verified"
     )
 
 

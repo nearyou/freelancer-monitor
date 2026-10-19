@@ -95,8 +95,9 @@ No Freelancer access token is used. The active-project API is requested with `ow
 registration date, reputation, and verification states in the same response. There are no HTML
 requests or per-project enrichment delays. Existing `DETAIL_REQUEST_DELAY_SECONDS` values are ignored.
 
-Telegram displays verification states in two aligned columns: identity/email, payment/profile,
-and deposit/phone. A preformatted block preserves the spacing. Identity,
+Telegram displays verification states in three paired rows: identity/email, payment/profile,
+and deposit/phone. They use normal message text without a code block or its Copy button;
+column spacing can vary with the Telegram client's font. Identity,
 phone, and email have zero score weight by default; enable them with `/set_score`. Missing
 optional verification states use a question mark. When their weight is positive, missing states
 defer the project for an employer-data retry. Payment and deposit map directly to their
