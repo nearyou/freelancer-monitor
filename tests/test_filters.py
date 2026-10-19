@@ -14,28 +14,31 @@ class ProjectFilterTests(TestCase):
             skills=("Python", "API"),
         )
 
-    def test_any_matches_word_or_skill(self):
+    def test_matches_word_without_skill_match(self):
         self.assertTrue(
             project_matches(
                 self.project,
                 search_words=("telegram",),
                 wanted_skills=("Rust",),
-                mode="any",
             )
         )
 
-    def test_all_requires_both_enabled_filter_groups(self):
-        self.assertFalse(
+    def test_matches_skill_without_word_match(self):
+        self.assertTrue(
             project_matches(
                 self.project,
-                search_words=("telegram",),
-                wanted_skills=("Rust",),
-                mode="all",
+                search_words=("unrelated",),
+                wanted_skills=("python",),
             )
         )
 
     def test_no_filters_matches_every_project(self):
         self.assertTrue(
-            project_matches(self.project, search_words=(), wanted_skills=(), mode="all")
+            project_matches(self.project, search_words=(), wanted_skills=())
         )
+
+    def test_rejects_when_no_enabled_filter_matches(self):
+        for words, skills in [(('unrelated',), ('Rust',)), (('unrelated',), ()), ((), ('Rust',))]:
+            with self.subTest(words=words, skills=skills):
+                self.assertFalse(project_matches(self.project, search_words=words, wanted_skills=skills))
 

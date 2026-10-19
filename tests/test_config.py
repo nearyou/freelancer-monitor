@@ -25,6 +25,7 @@ class SettingsTests(TestCase):
             "SCORE_REVIEWS_CAP": "0",
             "SKILLS": "Python",
             "SEARCH_WORDS": "automation",
+            "FILTER_MATCH_MODE": "obsolete",
         }
         with mock.patch.dict(os.environ, env, clear=True):
             settings = Settings.from_env()
@@ -32,6 +33,7 @@ class SettingsTests(TestCase):
         self.assertFalse(hasattr(settings, "score_threshold"))
         self.assertFalse(hasattr(settings, "skills"))
         self.assertFalse(hasattr(settings, "search_words"))
+        self.assertFalse(hasattr(settings, "filter_match_mode"))
 
     def test_telegram_interval_cannot_exceed_group_rate(self):
         env = {

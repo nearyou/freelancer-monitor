@@ -20,7 +20,7 @@ class BatchHistoryTests(TestCase):
         self.freelancer = mock.Mock()
         self.freelancer.resolve_skill_ids.return_value = ()
         settings = SimpleNamespace(
-            page_limit=2, filter_match_mode="any"
+            page_limit=2
         )
         self.monitor = Monitor(settings, self.freelancer, self.store)
         self.telegram = mock.Mock()

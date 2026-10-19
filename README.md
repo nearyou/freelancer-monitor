@@ -160,8 +160,9 @@ Invalid settings leave the saved configuration unchanged.
 Score changes affect newly processed projects; they do not rescore processed IDs or queued alerts.
 Use `/clear_history` to reconsider processed projects still in the feed (which can resend prior alerts).
 
-`FILTER_MATCH_MODE=any` allows either a search-word or skill match; `all` requires at least
-one match from each non-empty group. An empty group is disabled.
+The local filter accepts a project when it matches at least one search word OR one skill.
+With both groups empty, it accepts every project returned by the API for scoring. The old
+`FILTER_MATCH_MODE` environment variable is ignored and can be removed from existing `.env` files.
 
 `/clear_history` deletes processed-project history except for projects with pending notifications.
 It preserves the queue, skills, search words, threshold, command offset, and other settings.

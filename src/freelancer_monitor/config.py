@@ -98,7 +98,6 @@ class Settings:
     freelancer_api_url: str
     page_limit: int
     freelancer_languages: tuple[str, ...]
-    filter_match_mode: str
     poll_interval_seconds: int
     state_db_path: Path
     log_level: str
@@ -110,10 +109,6 @@ class Settings:
         chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip()
         if require_telegram and (not token or not chat_id):
             raise ValueError("TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are required")
-
-        match_mode = os.getenv("FILTER_MATCH_MODE", "any").strip().lower()
-        if match_mode not in {"any", "all"}:
-            raise ValueError("FILTER_MATCH_MODE must be 'any' or 'all'")
 
         return cls(
             telegram_bot_token=token,
@@ -127,7 +122,6 @@ class Settings:
             ).strip(),
             page_limit=_int("FREELANCER_PAGE_LIMIT", 50, 1),
             freelancer_languages=_csv("FREELANCER_LANGUAGES"),
-            filter_match_mode=match_mode,
             poll_interval_seconds=_int("POLL_INTERVAL_SECONDS", 15, 5),
             state_db_path=Path(os.getenv("STATE_DB_PATH", "freelancer_monitor.db")),
             log_level=os.getenv("LOG_LEVEL", "INFO").upper(),

@@ -145,7 +145,7 @@ class NotificationQueueTests(TestCase):
             freelancer = mock.Mock()
             freelancer.resolve_skill_ids.return_value = ()
             freelancer.fetch_active_projects.return_value = [Project(2, "New", "", "https://example/2")]
-            settings = SimpleNamespace(page_limit=50, filter_match_mode="any")
+            settings = SimpleNamespace(page_limit=50)
             monitor = Monitor(settings, freelancer, self.store)
             self.assertEqual(monitor.run_once(), (1, 1))
             self.assertEqual(monitor.run_once(), (0, 0))

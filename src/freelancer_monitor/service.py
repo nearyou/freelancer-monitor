@@ -52,7 +52,6 @@ class Monitor:
         project_filter = compile_project_filter(
             search_words=search_words,
             wanted_skills=skills,
-            mode=self.settings.filter_match_mode,
         )
         sorted_projects = sorted(projects, key=lambda item: item.id)
         project_ids = [project.id for project in sorted_projects]

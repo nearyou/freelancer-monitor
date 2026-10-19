@@ -43,7 +43,7 @@ class MonitorResilienceTests(TestCase):
         freelancer = FreelancerClient("https://example.test/api", session=session)
         telegram = _Telegram()
         settings = SimpleNamespace(
-            page_limit=50, filter_match_mode="any",
+            page_limit=50,
         )
         with TemporaryDirectory() as directory:
             store = SeenProjectStore(Path(directory) / "state.db")
@@ -108,7 +108,6 @@ class MonitorResilienceTests(TestCase):
         telegram = _Telegram()
         settings = SimpleNamespace(
             page_limit=50,
-            filter_match_mode="any",
         )
 
         with TemporaryDirectory() as directory:
@@ -143,7 +142,6 @@ class MonitorResilienceTests(TestCase):
         telegram = _Telegram()
         settings = SimpleNamespace(
             page_limit=50,
-            filter_match_mode="any",
         )
 
         with TemporaryDirectory() as directory:

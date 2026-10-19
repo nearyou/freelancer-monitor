@@ -97,7 +97,7 @@ class ScoringSettingsTests(TestCase):
         project = Project(id=1, title="Test", description="", url="https://example.test/1",
                           employer=Employer(payment_verified=True))
         freelancer.fetch_active_projects.return_value = [project, replace(project, id=2)]
-        monitor = Monitor(SimpleNamespace(page_limit=20, filter_match_mode="any"), freelancer, self.store)
+        monitor = Monitor(SimpleNamespace(page_limit=20), freelancer, self.store)
         other = SeenProjectStore(self.path)
         self.addCleanup(other.close)
 
@@ -118,7 +118,7 @@ class ScoringSettingsTests(TestCase):
         freelancer.resolve_skill_ids.return_value = ()
         project = Project(id=1, title="Test", description="", url="https://example.test/1")
         freelancer.fetch_active_projects.return_value = [project]
-        monitor = Monitor(SimpleNamespace(page_limit=20, filter_match_mode="any"), freelancer, self.store)
+        monitor = Monitor(SimpleNamespace(page_limit=20), freelancer, self.store)
         self.assertEqual(monitor.run_once(), (1, 1))
         for index, name in enumerate(("identity_verified", "phone_verified", "email_verified"), 2):
             with self.subTest(setting=name):
