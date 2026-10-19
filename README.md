@@ -45,7 +45,24 @@ python -m freelancer_monitor
 ```
 
 Stop it with `Ctrl+C`. Already processed project IDs are stored in the SQLite file configured by
-`STATE_DB_PATH`, so restarts do not send duplicate messages.
+`STATE_DB_PATH`, and pending notifications are stored in the same database for delivery after restart.
+Use one running monitor process per bot/database.
+
+Project polling runs in its own worker every **15 seconds** by default, independently of message
+delivery and Telegram command handling. Set `POLL_INTERVAL_SECONDS=15` in an existing `.env` if it
+still specifies 60. Polls do not overlap; a slow API request skips missed ticks instead of causing
+a burst of catch-up requests.
+
+Matching projects enter a persistent notification queue. One sender delivers all project alerts and
+command replies, maintaining the shared Telegram rate limit. Replies take priority over waiting
+project alerts, and settings changes take effect on the next poll. Alerts already queued retain the
+message and score captured when they matched, even if filters change or they leave the API feed.
+
+`--once` polls once and attempts delivery of ready queue entries before exiting. It returns a nonzero
+exit code if notifications remain in retry cooldown; a later run resumes them. Shutdown interrupts
+rate-limit waits and preserves pending alerts. Already delivered queue entries are removed, but a
+crash or lost response after Telegram accepts a message and before SQLite records delivery can
+still cause a duplicate on retry.
 
 ## Telegram setup
 
@@ -102,9 +119,9 @@ Commands from every other chat ID are ignored. Changes apply to the next project
 restart. `FILTER_MATCH_MODE=any` allows either a search-word or skill match; `all` requires at least
 one match from each non-empty group. An empty group is disabled.
 
-`/clear_history` deletes only processed-project notification history. It does not change skills,
-search words, threshold, command offset, or other settings. Active projects may be processed and
-notified again after clearing history.
+`/clear_history` deletes processed-project history except for projects with pending notifications.
+It preserves the queue, skills, search words, threshold, command offset, and other settings.
+Previously completed projects may be processed and notified again after clearing history.
 
 The monitor uses the active-project API for both discovery and employer trust details.
 The bot automatically resolves every skill registered through `/add_skill` to Freelancer's skill
@@ -131,8 +148,11 @@ The monitor minimizes local and network overhead without relaxing service limits
 - project filters are normalized once per poll;
 - seen-project checks and filter-miss writes are batched in SQLite;
 - transient API errors use bounded retries and respect `Retry-After`;
-- incomplete employer data or a failed Telegram notification defers only that project, using a
-  five-minute exponential retry cooldown capped at one hour; retries occur if it remains in the feed;
+- incomplete employer data defers only that project, using a five-minute exponential retry cooldown
+  capped at one hour; these data retries require the project to remain in the feed;
+- failed notifications remain queued and retry independently of the feed, with exponential backoff
+  starting at 30 seconds and capped at one hour;
+- project polling, command handling, and queue delivery use separate workers/connections;
 - Telegram send spacing and flood-control limits remain enforced.
 
 The feed still uses one page per poll. Increase `FREELANCER_PAGE_LIMIT` or narrow filters for a busy
@@ -143,5 +163,6 @@ feed; the monitor does not guarantee recovery of projects that have already left
 After installing the package, run `python -m unittest discover -s tests -v`.
 The API fixture in `tests/fixtures/active_projects.json` is based on an anonymous live response,
 with identifying project text and IDs replaced. Tests cover compact owner data, verification
-mapping, missing fields, query parameters, notification failure isolation, and duplicate suppression
+mapping, missing fields, query parameters, 15-second scheduling, queue persistence, concurrent polling,
+shared Telegram send limits, notification failure isolation, and duplicate suppression
 without sending messages to Telegram.

@@ -2,7 +2,18 @@ from __future__ import annotations
 
 import sqlite3
 import time
+from dataclasses import dataclass
 from pathlib import Path
+
+
+@dataclass(frozen=True)
+class PendingNotification:
+    id: int
+    project_id: int | None
+    message: str
+    button_url: str | None
+    score: float
+    attempts: int
 
 
 class SeenProjectStore:
@@ -55,6 +66,23 @@ class SeenProjectStore:
         self.connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_project_failures_retry_after "
             "ON project_failures(retry_after)"
+        )
+        self.connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS notification_queue (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                project_id INTEGER UNIQUE,
+                update_id INTEGER UNIQUE,
+                message TEXT NOT NULL,
+                button_url TEXT,
+                score REAL NOT NULL DEFAULT 0,
+                priority INTEGER NOT NULL DEFAULT 0,
+                attempts INTEGER NOT NULL DEFAULT 0,
+                retry_after REAL NOT NULL DEFAULT 0,
+                last_error TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
         )
         self.connection.commit()
 
@@ -247,10 +275,75 @@ class SeenProjectStore:
             )
 
     def clear_history(self) -> int:
-        """Delete processed-project history without touching preferences or settings."""
+        """Keep pending alerts and their deduplication records when clearing history."""
         with self.connection:
-            cursor = self.connection.execute("DELETE FROM seen_projects")
+            cursor = self.connection.execute(
+                "DELETE FROM seen_projects WHERE project_id NOT IN "
+                "(SELECT project_id FROM notification_queue WHERE project_id IS NOT NULL)"
+            )
         return cursor.rowcount
+
+    def enqueue_project(self, project_id: int, message: str, button_url: str, score: float) -> bool:
+        """Atomically persist an alert and mark it processed, but not yet delivered."""
+        with self.connection:
+            cursor = self.connection.execute(
+                """
+                INSERT OR IGNORE INTO notification_queue(project_id, message, button_url, score)
+                SELECT ?, ?, ?, ? WHERE NOT EXISTS
+                    (SELECT 1 FROM seen_projects WHERE project_id = ?)
+                """,
+                (project_id, message, button_url, score, project_id),
+            )
+            if cursor.rowcount == 0:
+                return False
+            self.connection.execute(
+                "INSERT INTO seen_projects(project_id, notified, score) VALUES (?, 0, ?)",
+                (project_id, score),
+            )
+            self.connection.execute("DELETE FROM project_failures WHERE project_id = ?", (project_id,))
+        return True
+
+    def enqueue_reply(self, message: str, update_id: int) -> None:
+        """Persist the reply and acknowledge its incoming update together."""
+        with self.connection:
+            self.connection.execute(
+                "INSERT OR IGNORE INTO notification_queue(update_id, message, priority) VALUES (?, ?, 1)",
+                (update_id, message),
+            )
+            self._set_setting("telegram_update_offset", str(update_id + 1))
+
+    def next_notification(self, *, now: float | None = None) -> PendingNotification | None:
+        row = self.connection.execute(
+            """
+            SELECT id, project_id, message, button_url, score, attempts
+            FROM notification_queue WHERE retry_after <= ?
+            ORDER BY priority DESC, id LIMIT 1
+            """,
+            (time.time() if now is None else now,),
+        ).fetchone()
+        return PendingNotification(*row) if row else None
+
+    def complete_notification(self, notification: PendingNotification) -> None:
+        with self.connection:
+            if notification.project_id is not None:
+                self.connection.execute(
+                    "UPDATE seen_projects SET notified = 1 WHERE project_id = ?",
+                    (notification.project_id,),
+                )
+            self.connection.execute("DELETE FROM notification_queue WHERE id = ?", (notification.id,))
+
+    def retry_notification(self, notification: PendingNotification, error: str, *, now: float | None = None) -> int:
+        delay = min(30 * (2 ** min(notification.attempts, 7)), 3600)
+        with self.connection:
+            self.connection.execute(
+                "UPDATE notification_queue SET attempts = attempts + 1, retry_after = ?, last_error = ? "
+                "WHERE id = ?",
+                ((time.time() if now is None else now) + delay, error[:1000], notification.id),
+            )
+        return delay
+
+    def pending_notification_count(self) -> int:
+        return self.connection.execute("SELECT COUNT(*) FROM notification_queue").fetchone()[0]
 
     def close(self) -> None:
         self.connection.close()

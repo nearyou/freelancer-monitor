@@ -4,6 +4,7 @@ import json
 import time
 from datetime import timedelta, timezone
 from html import escape
+from threading import Event
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
@@ -72,6 +73,7 @@ class TelegramClient:
         timeout: int = 30,
         send_interval_seconds: float = 3.1,
         max_rate_limit_retries: int = 5,
+        stop_event: Event | None = None,
     ):
         self.bot_token = bot_token
         self.chat_id = chat_id
@@ -79,13 +81,21 @@ class TelegramClient:
         self.send_interval_seconds = max(send_interval_seconds, 3.0)
         self.max_rate_limit_retries = max_rate_limit_retries
         self._last_send_attempt_at = 0.0
+        self._blocked_until = 0.0
+        self.stop_event = stop_event
 
     def _wait_for_send_slot(self) -> None:
-        remaining = self.send_interval_seconds - (
-            time.monotonic() - self._last_send_attempt_at
-        )
+        if self.stop_event is not None and self.stop_event.is_set():
+            raise InterruptedError("Notification sender stopped")
+        remaining = max(
+            self._last_send_attempt_at + self.send_interval_seconds,
+            self._blocked_until,
+        ) - time.monotonic()
         if remaining > 0:
-            time.sleep(remaining)
+            if self.stop_event is None:
+                time.sleep(remaining)
+            elif self.stop_event.wait(remaining):
+                raise InterruptedError("Notification sender stopped")
 
     def get_updates(
         self, *, offset: int | None = None, timeout_seconds: int = 2
@@ -140,8 +150,7 @@ class TelegramClient:
                 with urlopen(request, timeout=self.timeout) as response:
                     payload = json.load(response)
             except HTTPError as exc:
-                self._last_send_attempt_at = time.monotonic()
-                if exc.code != 429 or attempt >= self.max_rate_limit_retries:
+                if exc.code != 429:
                     raise
                 try:
                     error_payload = json.loads(exc.read().decode("utf-8"))
@@ -150,9 +159,13 @@ class TelegramClient:
                 retry_after = error_payload.get("parameters", {}).get("retry_after")
                 if retry_after is None:
                     retry_after = exc.headers.get("Retry-After", self.send_interval_seconds)
-                time.sleep(max(float(retry_after), self.send_interval_seconds))
+                self._blocked_until = time.monotonic() + max(float(retry_after), self.send_interval_seconds)
+                if attempt >= self.max_rate_limit_retries:
+                    raise
                 continue
-            self._last_send_attempt_at = time.monotonic()
+            finally:
+                # Even ambiguous network failures count as attempts for pacing.
+                self._last_send_attempt_at = time.monotonic()
             if not payload.get("ok"):
                 raise RuntimeError(f"Telegram API rejected the message: {payload}")
             return

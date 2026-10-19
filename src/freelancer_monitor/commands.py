@@ -25,18 +25,17 @@ class TelegramCommandProcessor:
         handled = 0
         for update in updates:
             update_id = update.get("update_id")
-            try:
-                message = update.get("message", {})
-                chat_id = str(message.get("chat", {}).get("id", ""))
-                text = message.get("text", "")
-                if chat_id != self.authorized_chat_id or not text.startswith("/"):
-                    continue
+            if not isinstance(update_id, int):
+                continue
+            message = update.get("message", {})
+            chat_id = str(message.get("chat", {}).get("id", ""))
+            text = message.get("text", "")
+            if chat_id == self.authorized_chat_id and isinstance(text, str) and text.startswith("/"):
                 response = self.handle_command(text)
-                self.telegram.send_message(response)
+                self.store.enqueue_reply(response, update_id)
                 handled += 1
-            finally:
-                if isinstance(update_id, int):
-                    self.store.set_telegram_update_offset(update_id + 1)
+            else:
+                self.store.set_telegram_update_offset(update_id + 1)
         return handled
 
     def handle_command(self, text: str) -> str:

@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
-import time
+from threading import Event, Thread
 
 from .tls import configure_system_trust
 
@@ -12,6 +12,8 @@ configure_system_trust()
 from .config import Settings
 from .commands import TelegramCommandProcessor
 from .freelancer import FreelancerClient
+from .notifications import NotificationSender
+from .runtime import notification_worker, project_worker
 from .service import Monitor
 from .state import SeenProjectStore
 from .telegram import TelegramClient
@@ -19,7 +21,7 @@ from .telegram import TelegramClient
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Monitor and score new Freelancer projects")
-    parser.add_argument("--once", action="store_true", help="poll once and exit")
+    parser.add_argument("--once", action="store_true", help="poll once, send ready queued messages, and exit")
     parser.add_argument(
         "--check-config", action="store_true", help="validate .env without calling external services"
     )
@@ -62,17 +64,13 @@ def main() -> int:
             stored_threshold,
             settings.score.maximum,
         )
+    stop = Event()
+    workers: list[Thread] = []
     telegram = TelegramClient(
         settings.telegram_bot_token,
         settings.telegram_chat_id,
         send_interval_seconds=settings.telegram_send_interval_seconds,
-    )
-    freelancer = FreelancerClient(settings.freelancer_api_url)
-    monitor = Monitor(
-        settings,
-        freelancer,
-        telegram,
-        store,
+        stop_event=stop,
     )
     commands = TelegramCommandProcessor(
         telegram,
@@ -82,35 +80,43 @@ def main() -> int:
     )
     try:
         if args.once:
+            freelancer = FreelancerClient(settings.freelancer_api_url)
             try:
-                processed, notified = monitor.run_once()
-                logging.info("Poll complete: processed=%d notified=%d", processed, notified)
-                return 0
+                processed, queued = Monitor(settings, freelancer, store).run_once()
+                logging.info("Poll complete: processed=%d queued=%d", processed, queued)
+                sender = NotificationSender(store, telegram)
+                while sender.send_next():
+                    pass
+                pending = store.pending_notification_count()
+                if pending:
+                    logging.warning("%d notifications remain queued for a later run", pending)
+                return 1 if pending else 0
             except Exception:
                 logging.exception("Poll failed")
                 return 1
+            finally:
+                freelancer.close()
 
-        next_project_poll = 0.0
-        while True:
+        for name, target in (("project-poller", project_worker), ("notification-sender", notification_worker)):
+            worker = Thread(name=name, target=target, args=(settings, stop), daemon=True)
+            worker.start()
+            workers.append(worker)
+        while not stop.is_set():
             try:
                 commands.poll_once(timeout_seconds=2)
             except Exception:
                 logging.exception("Telegram command poll failed; the bot will retry")
-                time.sleep(2)
-            if time.monotonic() >= next_project_poll:
-                try:
-                    processed, notified = monitor.run_once()
-                    logging.info(
-                        "Poll complete: processed=%d notified=%d", processed, notified
-                    )
-                except Exception:
-                    logging.exception("Project poll failed; the monitor will retry")
-                next_project_poll = time.monotonic() + settings.poll_interval_seconds
+                stop.wait(2)
+        return 1  # A worker failed to initialize and requested shutdown.
     except KeyboardInterrupt:
         logging.info("Monitor stopped")
         return 0
     finally:
-        freelancer.close()
+        stop.set()
+        for worker in workers:
+            worker.join(timeout=5)
+            if worker.is_alive():
+                logging.warning("%s is still finishing a request; unsent alerts remain in SQLite", worker.name)
         store.close()
 
 

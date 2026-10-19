@@ -51,7 +51,9 @@ class TelegramCommandTests(TestCase):
                 self.assertEqual(store.list_terms("search_word"), ("API integration",))
                 self.assertEqual(store.get_threshold(), 72.5)
                 self.assertEqual(store.get_telegram_update_offset(), 14)
-                self.assertEqual(len(telegram.messages), 3)
+                self.assertEqual(telegram.messages, [])
+                self.assertEqual(store.pending_notification_count(), 3)
+                self.assertIn("Added", store.next_notification().message)
             finally:
                 store.close()
 

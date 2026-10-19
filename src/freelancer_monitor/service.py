@@ -8,7 +8,7 @@ from .filters import compile_project_filter
 from .freelancer import FreelancerClient
 from .scoring import score_employer
 from .state import SeenProjectStore
-from .telegram import TelegramClient, format_project_message
+from .telegram import format_project_message
 
 logger = logging.getLogger(__name__)
 MAX_PROJECT_AGE = timedelta(hours=1)
@@ -32,12 +32,10 @@ class Monitor:
         self,
         settings: Settings,
         freelancer: FreelancerClient,
-        telegram: TelegramClient,
         store: SeenProjectStore,
     ):
         self.settings = settings
         self.freelancer = freelancer
-        self.telegram = telegram
         self.store = store
 
     def run_once(self) -> tuple[int, int]:
@@ -79,7 +77,7 @@ class Monitor:
                 logger.info("Skipped project %s (filter mismatch)", project.id)
         self.store.mark_seen_many(filter_misses)
 
-        notified = 0
+        queued = 0
         processed = len(unseen_projects)
         for project in matched_projects:
             if not project.employer_data_complete:
@@ -98,20 +96,9 @@ class Monitor:
             should_notify = score.total >= threshold
             if should_notify:
                 message = format_project_message(project)
-                try:
-                    self.telegram.send_message(message, button_url=project.url)
-                except (OSError, RuntimeError, ValueError) as exc:
-                    attempts, retry_seconds = self.store.record_project_failure(
-                        project.id, f"Telegram notification failed: {exc}"
-                    )
-                    logger.warning(
-                        "Deferred project %s for %s seconds after Telegram failure "
-                        "(attempt %s): %s",
-                        project.id, retry_seconds, attempts, exc,
-                    )
-                    continue
-                notified += 1
-                logger.info("Notified project %s with score %.2f", project.id, score.total)
+                if self.store.enqueue_project(project.id, message, project.url, score.total):
+                    queued += 1
+                    logger.info("Queued project %s with score %.2f", project.id, score.total)
             else:
                 logger.info(
                     "Skipped project %s (matches=%s score=%.2f threshold=%.2f)",
@@ -120,5 +107,5 @@ class Monitor:
                     score.total,
                     threshold,
                 )
-            self.store.mark_seen(project.id, notified=should_notify, score=score.total)
-        return processed, notified
+                self.store.mark_seen(project.id, notified=False, score=score.total)
+        return processed, queued

@@ -13,6 +13,8 @@ class SettingsTests(TestCase):
         with mock.patch.dict(os.environ, env, clear=True):
             settings = Settings.from_env()
         self.assertEqual(settings.telegram_chat_id, "123")
+        self.assertEqual(settings.poll_interval_seconds, 15)
+        self.assertEqual(settings.telegram_send_interval_seconds, 3.1)
 
     def test_threshold_cannot_exceed_configured_maximum(self):
         env = {

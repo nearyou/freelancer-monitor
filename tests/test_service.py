@@ -8,6 +8,7 @@ from unittest import TestCase, mock
 from freelancer_monitor.config import ScoreConfig
 from freelancer_monitor.freelancer import FreelancerClient
 from freelancer_monitor.models import Employer, Project
+from freelancer_monitor.notifications import NotificationSender
 from freelancer_monitor.service import Monitor, is_project_stale
 from freelancer_monitor.state import SeenProjectStore
 
@@ -50,40 +51,21 @@ class MonitorResilienceTests(TestCase):
             store = SeenProjectStore(Path(directory) / "state.db")
             try:
                 store.initialize_preferences(skills=(), search_words=(), threshold=0)
-                monitor = Monitor(settings, freelancer, telegram, store)
+                monitor = Monitor(settings, freelancer, store)
                 self.assertEqual(monitor.run_once(), (2, 2))
                 self.assertEqual(session.get.call_count, 1)
+                self.assertEqual(telegram.messages, [])
+                self.assertEqual(store.pending_notification_count(), 2)
+                sender = NotificationSender(store, telegram)
+                self.assertTrue(sender.send_next())
+                self.assertTrue(sender.send_next())
+                self.assertFalse(sender.send_next())
                 self.assertIn("Phone verified", telegram.messages[0][0])
                 self.assertEqual(monitor.run_once(), (0, 0))
                 self.assertEqual(len(telegram.messages), 2)
                 self.assertEqual(session.get.call_count, 2)
             finally:
                 freelancer.close()
-                store.close()
-
-    def test_notification_failure_defers_only_that_project_and_can_retry(self):
-        projects = [Project(i, "Example", "", f"https://example/{i}") for i in (1, 2)]
-        freelancer = _Freelancer(projects)
-        telegram = mock.Mock()
-        telegram.send_message.side_effect = [OSError("connection failed"), None, None]
-        settings = SimpleNamespace(
-            page_limit=50, filter_match_mode="any",
-            score=ScoreConfig(20, 15, 5, 15, 10, 50, 100),
-        )
-        with TemporaryDirectory() as directory:
-            store = SeenProjectStore(Path(directory) / "state.db")
-            try:
-                store.initialize_preferences(skills=(), search_words=(), threshold=0)
-                monitor = Monitor(settings, freelancer, telegram, store)
-                self.assertEqual(monitor.run_once(), (2, 1))
-                self.assertFalse(store.has_seen(1))
-                self.assertTrue(store.has_seen(2))
-                self.assertEqual(store.deferred_project_ids([1]), {1})
-                self.assertEqual(monitor.run_once(), (0, 0))
-                store.clear_project_failure(1)
-                self.assertEqual(monitor.run_once(), (1, 1))
-                self.assertTrue(store.has_seen(1))
-            finally:
                 store.close()
 
     def test_projects_posted_one_hour_or_more_ago_are_stale(self):
@@ -136,7 +118,7 @@ class MonitorResilienceTests(TestCase):
             store = SeenProjectStore(Path(directory) / "state.db")
             try:
                 store.initialize_preferences(skills=(), search_words=(), threshold=0)
-                monitor = Monitor(settings, freelancer, telegram, store)
+                monitor = Monitor(settings, freelancer, store)
 
                 self.assertEqual(monitor.run_once(), (1, 0))
                 self.assertTrue(store.has_seen(3))
@@ -172,13 +154,14 @@ class MonitorResilienceTests(TestCase):
             store = SeenProjectStore(Path(directory) / "state.db")
             try:
                 store.initialize_preferences(skills=(), search_words=(), threshold=0)
-                monitor = Monitor(settings, freelancer, telegram, store)
+                monitor = Monitor(settings, freelancer, store)
 
                 self.assertEqual(monitor.run_once(), (2, 1))
                 self.assertFalse(store.has_seen(1))
                 self.assertTrue(store.has_seen(2))
                 self.assertEqual(store.deferred_project_ids([1]), {1})
-                self.assertEqual(len(telegram.messages), 1)
+                self.assertEqual(telegram.messages, [])
+                self.assertEqual(store.pending_notification_count(), 1)
 
                 self.assertEqual(monitor.run_once(), (0, 0))
             finally:

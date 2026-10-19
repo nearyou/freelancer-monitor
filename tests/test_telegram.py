@@ -120,8 +120,46 @@ class TelegramMessageTests(TestCase):
         with mock.patch(
             "freelancer_monitor.telegram.urlopen",
             side_effect=[rate_limit_error, success],
-        ) as mocked_open, mock.patch("freelancer_monitor.telegram.time.sleep") as mocked_sleep:
+        ) as mocked_open, mock.patch("freelancer_monitor.telegram.time.sleep") as mocked_sleep, \
+             mock.patch("freelancer_monitor.telegram.time.monotonic", return_value=100):
             client.send_message("message")
 
         self.assertEqual(mocked_open.call_count, 2)
         self.assertTrue(any(call.args[0] >= 4 for call in mocked_sleep.call_args_list))
+
+    def test_exhausted_429_cooldown_applies_to_the_next_message(self):
+        clock = [100.0]
+        attempts = []
+        error = HTTPError("https://example.test", 429, "Too Many Requests", {},
+                          io.BytesIO(json.dumps({"parameters": {"retry_after": 120}}).encode()))
+
+        def request(*args, **kwargs):
+            attempts.append(clock[0])
+            if len(attempts) == 1:
+                raise error
+            return io.BytesIO(b'{"ok": true}')
+
+        def sleep(seconds):
+            clock[0] += seconds
+
+        client = TelegramClient("token", "chat", max_rate_limit_retries=0)
+        with mock.patch("freelancer_monitor.telegram.urlopen", side_effect=request), \
+             mock.patch("freelancer_monitor.telegram.time.monotonic", side_effect=lambda: clock[0]), \
+             mock.patch("freelancer_monitor.telegram.time.sleep", side_effect=sleep):
+            with self.assertRaises(HTTPError):
+                client.send_message("First")
+            client.send_message("Second")
+        self.assertGreaterEqual(attempts[1] - attempts[0], 120)
+
+    def test_shutdown_interrupts_rate_limit_wait(self):
+        stop = mock.Mock()
+        stop.is_set.return_value = False
+        stop.wait.return_value = True
+        client = TelegramClient("token", "chat", stop_event=stop)
+        client._last_send_attempt_at = 100
+        with mock.patch("freelancer_monitor.telegram.time.monotonic", return_value=100), \
+             mock.patch("freelancer_monitor.telegram.urlopen") as request:
+            with self.assertRaises(InterruptedError):
+                client.send_message("Message")
+        request.assert_not_called()
+        self.assertAlmostEqual(stop.wait.call_args.args[0], 3.1)

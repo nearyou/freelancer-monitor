@@ -122,7 +122,7 @@ class Settings:
             filter_match_mode=match_mode,
             score_threshold=threshold,
             score=score,
-            poll_interval_seconds=_int("POLL_INTERVAL_SECONDS", 60, 5),
+            poll_interval_seconds=_int("POLL_INTERVAL_SECONDS", 15, 5),
             state_db_path=Path(os.getenv("STATE_DB_PATH", "freelancer_monitor.db")),
             log_level=os.getenv("LOG_LEVEL", "INFO").upper(),
         )
