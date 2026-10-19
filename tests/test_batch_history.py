@@ -3,7 +3,6 @@ from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest import TestCase, mock
 
-from freelancer_monitor.config import ScoreConfig
 from freelancer_monitor.models import Project
 from freelancer_monitor.notifications import NotificationSender
 from freelancer_monitor.service import Monitor
@@ -21,7 +20,7 @@ class BatchHistoryTests(TestCase):
         self.freelancer = mock.Mock()
         self.freelancer.resolve_skill_ids.return_value = ()
         settings = SimpleNamespace(
-            page_limit=2, filter_match_mode="any", score=ScoreConfig(20, 15, 5, 15, 10, 50, 100)
+            page_limit=2, filter_match_mode="any"
         )
         self.monitor = Monitor(settings, self.freelancer, self.store)
         self.telegram = mock.Mock()

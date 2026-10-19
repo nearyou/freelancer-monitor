@@ -45,3 +45,7 @@ class ScoreBreakdown:
     reviews: float
     member_age: float
     member_age_days: float
+    identity_verified: float = 0
+    phone_verified: float = 0
+    email_verified: float = 0
+    rating: float = 0

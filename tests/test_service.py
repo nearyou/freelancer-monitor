@@ -5,7 +5,6 @@ from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest import TestCase, mock
 
-from freelancer_monitor.config import ScoreConfig
 from freelancer_monitor.freelancer import FreelancerClient
 from freelancer_monitor.models import Employer, Project
 from freelancer_monitor.notifications import NotificationSender
@@ -45,7 +44,6 @@ class MonitorResilienceTests(TestCase):
         telegram = _Telegram()
         settings = SimpleNamespace(
             page_limit=50, filter_match_mode="any",
-            score=ScoreConfig(20, 15, 5, 15, 10, 50, 100),
         )
         with TemporaryDirectory() as directory:
             store = SeenProjectStore(Path(directory) / "state.db")
@@ -111,7 +109,6 @@ class MonitorResilienceTests(TestCase):
         settings = SimpleNamespace(
             page_limit=50,
             filter_match_mode="any",
-            score=ScoreConfig(20, 15, 5, 15, 10, 50, 100),
         )
 
         with TemporaryDirectory() as directory:
@@ -147,7 +144,6 @@ class MonitorResilienceTests(TestCase):
         settings = SimpleNamespace(
             page_limit=50,
             filter_match_mode="any",
-            score=ScoreConfig(20, 15, 5, 15, 10, 50, 100),
         )
 
         with TemporaryDirectory() as directory:

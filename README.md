@@ -6,20 +6,26 @@ Telegram.
 
 ## Trust score
 
-The default score is out of 65. Employer rating is displayed as a rounded integer in Telegram but
-does not affect the score:
+The default score is out of 65. Manage every owner-score weight, cap, and threshold in Telegram
+with `/show_score`, `/set_score <setting> <value>`, and `/set_threshold <score>`.
 
 | Signal | Default maximum | Calculation |
 |---|---:|---|
 | Payment verified | 20 | All or nothing |
 | Deposit made | 15 | All or nothing |
 | Profile Completed | 5 | API `owner_info.status.profile_complete`; all or nothing |
-| Overall rating | Not scored | Display-only, rounded to a whole star |
+| Identity verified | 0 (disabled) | All or nothing |
+| Phone verified | 0 (disabled) | All or nothing |
+| Email verified | 0 (disabled) | All or nothing |
+| Overall rating | 0 (disabled) | Linear: rating / 5 × configured maximum |
 | Number of reviews | 15 | Logarithmic, capped at 50 reviews |
 | Member since | 10 | Logarithmic age in whole days, capped at 100 days |
 
 The logarithmic review curve gives useful credit to the first few reviews without allowing very old,
-high-volume accounts to dominate the score. Every weight and cap is configurable in `.env`.
+high-volume accounts to dominate the score. Settings persist in SQLite and apply without a restart.
+The maximum score is the sum of enabled weights; caps determine when reviews and account age earn
+their full points. A weight of zero disables that signal. Caps must be positive whole numbers.
+The displayed star rating is rounded, but scoring uses the original API rating.
 
 This is a risk-ranking aid, not a guarantee that a project is genuine. Always inspect the brief and
 keep communication and payments on-platform.
@@ -32,7 +38,7 @@ native certificate store. Certificate verification is never disabled.
 
 ```powershell
 Copy-Item .env_example .env
-# Edit .env with your Telegram token, chat ID, filters, threshold, and score weights.
+# Edit .env with your Telegram token, chat ID, and optional initial filters.
 python -m pip install -e .
 python -m freelancer_monitor --check-config
 python -m freelancer_monitor --once
@@ -90,8 +96,9 @@ registration date, reputation, and verification states in the same response. The
 requests or per-project enrichment delays. Existing `DETAIL_REQUEST_DELAY_SECONDS` values are ignored.
 
 Telegram displays payment, deposit, profile, identity, phone, and email verification. Identity,
-phone, and email are display-only; score weights and the 65-point maximum are unchanged. Missing
-optional verification states use a question mark. Payment and deposit now map directly to their
+phone, and email have zero score weight by default; enable them with `/set_score`. Missing
+optional verification states use a question mark. When their weight is positive, missing states
+defer the project for an employer-data retry. Payment and deposit map directly to their
 API names, replacing the old HTML label swap; scores can therefore differ for employers with only
 one of those two verifications.
 
@@ -101,9 +108,14 @@ a zero rating. An API error or malformed response fails the poll instead of look
 
 ## Filters
 
-Skills, search words, and the notification threshold are stored in the SQLite database. On the first
-startup after this feature is installed, existing `SKILLS`, `SEARCH_WORDS`, and `SCORE_THRESHOLD`
-environment values are imported once. SQLite is authoritative after that migration.
+Skills, search words, and all scoring settings are stored in the SQLite database. On the first
+startup, `SKILLS` and `SEARCH_WORDS` environment values are imported once. A new database starts
+with the default weights above and a threshold of 65.
+
+All legacy `SCORE_*` environment variables are ignored and can be removed from an existing `.env`.
+An existing database keeps its saved threshold and gains the default weights once. If you previously
+customized weights in `.env`, enter them through Telegram after upgrading. `/show_score` warns if
+the saved threshold exceeds the new maximum; adjust the weights or threshold before expecting alerts.
 
 Send these commands to the bot from the chat configured by `TELEGRAM_CHAT_ID`:
 
@@ -119,12 +131,34 @@ Send these commands to the bot from the chat configured by `TELEGRAM_CHAT_ID`:
 /show_threshold
 /set_threshold 65
 
+/show_score
+/set_score payment_verified 20
+/set_score deposit_made 15
+/set_score profile_completed 5
+/set_score identity_verified 10
+/set_score phone_verified 5
+/set_score email_verified 5
+/set_score rating_max 10
+/set_score reviews_max 15
+/set_score reviews_cap 50
+/set_score member_age_max 10
+/set_score member_age_max_days 100
+
 /clear_history
 /help
 ```
 
 Commands from every other chat ID are ignored. Changes apply to the next project poll without a
-restart. `FILTER_MATCH_MODE=any` allows either a search-word or skill match; `all` requires at least
+restart, with one consistent scoring configuration used for each batch. The `/set_score` examples
+above demonstrate every setting; they enable the optional signals and increase the maximum to 95.
+Use `/show_score` to see your current values. The threshold must be between zero and the current
+maximum. Before reducing weights below your threshold, lower the threshold first with `/set_threshold`.
+Invalid settings leave the saved configuration unchanged.
+
+Score changes affect newly processed projects; they do not rescore processed IDs or queued alerts.
+Use `/clear_history` to reconsider processed projects still in the feed (which can resend prior alerts).
+
+`FILTER_MATCH_MODE=any` allows either a search-word or skill match; `all` requires at least
 one match from each non-empty group. An empty group is disabled.
 
 `/clear_history` deletes processed-project history except for projects with pending notifications.
@@ -172,5 +206,6 @@ After installing the package, run `python -m unittest discover -s tests -v`.
 The API fixture in `tests/fixtures/active_projects.json` is based on an anonymous live response,
 with identifying project text and IDs replaced. Tests cover compact owner data, verification
 mapping, missing fields, query parameters, 15-second scheduling, queue persistence, concurrent polling,
-shared Telegram send limits, notification failure isolation, and duplicate suppression
+shared Telegram send limits, notification failure isolation, duplicate suppression, Telegram scoring
+configuration, migration, validation, persistence, and scoring changes during polling
 without sending messages to Telegram.

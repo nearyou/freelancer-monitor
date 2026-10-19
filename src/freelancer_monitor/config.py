@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import math
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, fields, replace
 from pathlib import Path
 
 
@@ -42,13 +43,17 @@ def _float(name: str, default: float, minimum: float = 0.0) -> float:
 
 @dataclass(frozen=True)
 class ScoreConfig:
-    payment_verified: float
-    deposit_made: float
-    profile_completed: float
-    reviews_max: float
-    member_age_max: float
-    reviews_cap: int
-    member_age_max_days: int
+    payment_verified: float = 20
+    deposit_made: float = 15
+    profile_completed: float = 5
+    reviews_max: float = 15
+    member_age_max: float = 10
+    reviews_cap: int = 50
+    member_age_max_days: int = 100
+    identity_verified: float = 0
+    phone_verified: float = 0
+    email_verified: float = 0
+    rating_max: float = 0
 
     @property
     def maximum(self) -> float:
@@ -58,7 +63,31 @@ class ScoreConfig:
             + self.profile_completed
             + self.reviews_max
             + self.member_age_max
+            + self.identity_verified
+            + self.phone_verified
+            + self.email_verified
+            + self.rating_max
         )
+
+    def updated(self, name: str, value: str) -> "ScoreConfig":
+        if name not in {field.name for field in fields(self)}:
+            raise ValueError("Unknown score setting. Use /show_score to see valid names.")
+        try:
+            number = float(value)
+        except ValueError:
+            raise ValueError("Score settings must be finite numbers.") from None
+        if not math.isfinite(number):
+            raise ValueError("Score settings must be finite numbers.")
+        if name in {"reviews_cap", "member_age_max_days"}:
+            if number < 1 or not number.is_integer():
+                raise ValueError(f"{name} must be a whole number of at least 1.")
+            number = int(number)
+        elif number < 0:
+            raise ValueError("Score weights must be zero or greater. Use 0 to disable a signal.")
+        updated = replace(self, **{name: number})
+        if not math.isfinite(updated.maximum):
+            raise ValueError("The combined maximum score is too large.")
+        return updated
 
 
 @dataclass(frozen=True)
@@ -72,8 +101,6 @@ class Settings:
     search_words: tuple[str, ...]
     skills: tuple[str, ...]
     filter_match_mode: str
-    score_threshold: float
-    score: ScoreConfig
     poll_interval_seconds: int
     state_db_path: Path
     log_level: str
@@ -90,21 +117,6 @@ class Settings:
         if match_mode not in {"any", "all"}:
             raise ValueError("FILTER_MATCH_MODE must be 'any' or 'all'")
 
-        score = ScoreConfig(
-            payment_verified=_float("SCORE_PAYMENT_VERIFIED", 20),
-            deposit_made=_float("SCORE_DEPOSIT_MADE", 15),
-            profile_completed=_float("SCORE_PROFILE_COMPLETED", 5),
-            reviews_max=_float("SCORE_REVIEWS_MAX", 15),
-            member_age_max=_float("SCORE_MEMBER_AGE_MAX", 10),
-            reviews_cap=_int("SCORE_REVIEWS_CAP", 50, 1),
-            member_age_max_days=_int("SCORE_MEMBER_AGE_MAX_DAYS", 100, 1),
-        )
-        threshold = _float("SCORE_THRESHOLD", 65)
-        if threshold > score.maximum:
-            raise ValueError(
-                f"SCORE_THRESHOLD ({threshold}) cannot exceed maximum score ({score.maximum})"
-            )
-
         return cls(
             telegram_bot_token=token,
             telegram_chat_id=chat_id,
@@ -120,8 +132,6 @@ class Settings:
             search_words=_csv("SEARCH_WORDS"),
             skills=_csv("SKILLS"),
             filter_match_mode=match_mode,
-            score_threshold=threshold,
-            score=score,
             poll_interval_seconds=_int("POLL_INTERVAL_SECONDS", 15, 5),
             state_db_path=Path(os.getenv("STATE_DB_PATH", "freelancer_monitor.db")),
             log_level=os.getenv("LOG_LEVEL", "INFO").upper(),

@@ -8,7 +8,6 @@ from types import SimpleNamespace
 from unittest import TestCase, mock
 
 from freelancer_monitor.commands import TelegramCommandProcessor
-from freelancer_monitor.config import ScoreConfig
 from freelancer_monitor.models import Project
 from freelancer_monitor.notifications import NotificationSender
 from freelancer_monitor.service import Monitor
@@ -146,13 +145,13 @@ class NotificationQueueTests(TestCase):
             freelancer = mock.Mock()
             freelancer.resolve_skill_ids.return_value = ()
             freelancer.fetch_active_projects.return_value = [Project(2, "New", "", "https://example/2")]
-            settings = SimpleNamespace(page_limit=50, filter_match_mode="any", score=ScoreConfig(20, 15, 5, 15, 10, 50, 100))
+            settings = SimpleNamespace(page_limit=50, filter_match_mode="any")
             monitor = Monitor(settings, freelancer, self.store)
             self.assertEqual(monitor.run_once(), (1, 1))
             self.assertEqual(monitor.run_once(), (0, 0))
             telegram = mock.Mock()
             telegram.get_updates.return_value = [{"update_id": 10, "message": {"chat": {"id": 123}, "text": "/add_skill Python"}}]
-            commands = TelegramCommandProcessor(telegram, self.store, authorized_chat_id="123", maximum_score=65)
+            commands = TelegramCommandProcessor(telegram, self.store, authorized_chat_id="123")
             self.assertEqual(commands.poll_once(), 1)
             self.assertEqual(self.store.list_terms("skill"), ("Python",))
             telegram.send_message.assert_not_called()

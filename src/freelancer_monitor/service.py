@@ -48,7 +48,7 @@ class Monitor:
             skill_ids=skill_ids,
             languages=getattr(self.settings, "freelancer_languages", ()),
         )
-        threshold = self.store.get_threshold()
+        score_config, threshold = self.store.get_scoring_settings()
         project_filter = compile_project_filter(
             search_words=search_words,
             wanted_skills=skills,
@@ -80,7 +80,11 @@ class Monitor:
         queued = 0
         processed = len(unseen_projects)
         for project in matched_projects:
-            if not project.employer_data_complete:
+            missing_enabled_verification = any(
+                getattr(score_config, field) > 0 and getattr(project.employer, field) is None
+                for field in ("identity_verified", "phone_verified", "email_verified")
+            )
+            if not project.employer_data_complete or missing_enabled_verification:
                 attempts, retry_seconds = self.store.record_project_failure(
                     project.id, "API response is missing required employer trust data"
                 )
@@ -92,7 +96,7 @@ class Monitor:
                     attempts,
                 )
                 continue
-            score = score_employer(project.employer, self.settings.score)
+            score = score_employer(project.employer, score_config)
             should_notify = score.total >= threshold
             if should_notify:
                 message = format_project_message(project)

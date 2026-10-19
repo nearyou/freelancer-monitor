@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import json
+import math
 import sqlite3
 import time
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
+
+from .config import ScoreConfig
 
 
 @dataclass(frozen=True)
@@ -91,9 +95,14 @@ class SeenProjectStore:
         *,
         skills: tuple[str, ...],
         search_words: tuple[str, ...],
-        threshold: float,
+        threshold: float = 65,
     ) -> bool:
-        """Import legacy env preferences once; afterward SQLite is authoritative."""
+        """Seed scoring defaults and import filter terms once; SQLite is authoritative."""
+        with self.connection:
+            self.connection.execute(
+                "INSERT OR IGNORE INTO runtime_settings(key, value) VALUES ('scoring_config', ?)",
+                (json.dumps(asdict(ScoreConfig())),),
+            )
         if self.get_setting("preferences_initialized") == "1":
             return False
         with self.connection:
@@ -163,7 +172,35 @@ class SeenProjectStore:
         return float(value)
 
     def set_threshold(self, threshold: float) -> None:
-        self.set_setting("score_threshold", str(threshold))
+        with self.connection:
+            self.connection.execute("BEGIN IMMEDIATE")
+            config, _ = self.get_scoring_settings()
+            if not math.isfinite(threshold) or not 0 <= threshold <= config.maximum:
+                raise ValueError(f"Threshold must be between 0 and {config.maximum:g}.")
+            self._set_setting("score_threshold", str(threshold))
+
+    def get_scoring_settings(self) -> tuple[ScoreConfig, float]:
+        # Read both values in one snapshot so polling never mixes old weights
+        # with a threshold from a different command transaction.
+        values = dict(self.connection.execute(
+            "SELECT key, value FROM runtime_settings WHERE key IN ('scoring_config', 'score_threshold')"
+        ).fetchall())
+        if "scoring_config" not in values or "score_threshold" not in values:
+            raise RuntimeError("Runtime preferences have not been initialized")
+        return ScoreConfig(**json.loads(values["scoring_config"])), float(values["score_threshold"])
+
+    def set_score_setting(self, name: str, value: str) -> tuple[ScoreConfig, float]:
+        with self.connection:
+            self.connection.execute("BEGIN IMMEDIATE")
+            config, threshold = self.get_scoring_settings()
+            updated = config.updated(name, value)
+            if threshold > updated.maximum:
+                raise ValueError(
+                    f"New maximum would be {updated.maximum:g}, below threshold {threshold:g}. "
+                    f"Use /set_threshold {updated.maximum:g} (or lower) first."
+                )
+            self._set_setting("scoring_config", json.dumps(asdict(updated)))
+        return updated, threshold
 
     def get_telegram_update_offset(self) -> int | None:
         value = self.get_setting("telegram_update_offset")

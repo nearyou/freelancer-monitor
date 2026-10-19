@@ -5,7 +5,6 @@ from types import SimpleNamespace
 from unittest import TestCase, mock
 
 from freelancer_monitor.__main__ import main
-from freelancer_monitor.config import ScoreConfig
 from freelancer_monitor.models import Project
 from freelancer_monitor.state import SeenProjectStore
 
@@ -16,13 +15,17 @@ class MainTests(TestCase):
         self.addCleanup(self.directory.cleanup)
         self.settings = SimpleNamespace(
             state_db_path=Path(self.directory.name) / "state.db",
-            score=ScoreConfig(20, 15, 5, 15, 10, 50, 100), score_threshold=0,
             skills=(), search_words=(), log_level="ERROR", filter_match_mode="any",
             telegram_bot_token="test-token", telegram_chat_id="123",
             telegram_send_interval_seconds=3.1,
             freelancer_api_url="https://example.test/api", page_limit=20,
             poll_interval_seconds=15,
         )
+        store = SeenProjectStore(self.settings.state_db_path)
+        try:
+            store.initialize_preferences(skills=(), search_words=(), threshold=0)
+        finally:
+            store.close()
 
     def test_once_delivers_pending_notifications_from_previous_run(self):
         store = SeenProjectStore(self.settings.state_db_path)

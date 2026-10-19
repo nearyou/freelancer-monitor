@@ -28,7 +28,7 @@ class TelegramCommandTests(TestCase):
             },
             {
                 "update_id": 12,
-                "message": {"chat": {"id": 123}, "text": "/set_threshold 72.5"},
+                "message": {"chat": {"id": 123}, "text": "/set_threshold 52.5"},
             },
             {
                 "update_id": 13,
@@ -44,12 +44,11 @@ class TelegramCommandTests(TestCase):
                     telegram,
                     store,
                     authorized_chat_id="123",
-                    maximum_score=100,
                 )
                 self.assertEqual(processor.poll_once(timeout_seconds=0), 3)
                 self.assertEqual(store.list_terms("skill"), ("Go",))
                 self.assertEqual(store.list_terms("search_word"), ("API integration",))
-                self.assertEqual(store.get_threshold(), 72.5)
+                self.assertEqual(store.get_threshold(), 52.5)
                 self.assertEqual(store.get_telegram_update_offset(), 14)
                 self.assertEqual(telegram.messages, [])
                 self.assertEqual(store.pending_notification_count(), 3)
@@ -66,7 +65,7 @@ class TelegramCommandTests(TestCase):
                     skills=("Python",), search_words=("bot",), threshold=60
                 )
                 processor = TelegramCommandProcessor(
-                    telegram, store, authorized_chat_id="123", maximum_score=100
+                    telegram, store, authorized_chat_id="123"
                 )
                 self.assertIn("Python", processor.handle_command("/show_skills"))
                 self.assertIn("bot", processor.handle_command("/show_search_words"))

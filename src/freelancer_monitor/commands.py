@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from dataclasses import fields
 from html import escape
 
 from .state import SeenProjectStore
 from .telegram import TelegramClient
+
 
 class TelegramCommandProcessor:
     def __init__(
@@ -12,12 +14,10 @@ class TelegramCommandProcessor:
         store: SeenProjectStore,
         *,
         authorized_chat_id: str,
-        maximum_score: float,
     ) -> None:
         self.telegram = telegram
         self.store = store
         self.authorized_chat_id = str(authorized_chat_id)
-        self.maximum_score = maximum_score
 
     def poll_once(self, timeout_seconds: int = 2) -> int:
         offset = self.store.get_telegram_update_offset()
@@ -68,7 +68,36 @@ class TelegramCommandProcessor:
                 "Search words", self.store.list_terms("search_word")
             )
         if command == "/show_threshold":
-            return f"Score threshold: <b>{self.store.get_threshold():g}</b>"
+            config, threshold = self.store.get_scoring_settings()
+            return f"Score threshold: <b>{threshold:g}</b> / {config.maximum:g} maximum"
+        if command == "/show_score":
+            config, threshold = self.store.get_scoring_settings()
+            lines = ["<b>Owner scoring</b>", f"Threshold: <b>{threshold:g}</b> / {config.maximum:g} maximum"]
+            lines.extend(f"<code>{field.name}</code>: {getattr(config, field.name):g}" for field in fields(config))
+            lines.extend([
+                "", "Weights are points; 0 disables a signal.",
+                "reviews_cap: review count for maximum points.",
+                "member_age_max_days: account age in days for maximum points.",
+                "rating_max: maximum points at 5 stars (linear).",
+                "", "/set_score &lt;setting&gt; &lt;value&gt;", "/set_threshold &lt;score&gt;",
+            ])
+            if threshold > config.maximum:
+                lines.append("Threshold exceeds maximum; use /set_threshold to enable alerts.")
+            return "\n".join(lines)
+        if command == "/set_score":
+            parts = argument.split()
+            if len(parts) != 2:
+                return "Usage: /set_score &lt;setting&gt; &lt;value&gt;. Use /show_score for settings."
+            name, value = parts
+            name = name.casefold()
+            try:
+                config, threshold = self.store.set_score_setting(name, value)
+            except ValueError as exc:
+                return escape(str(exc))
+            return (
+                f"Set <code>{escape(name)}</code> to <b>{getattr(config, name):g}</b>.\n"
+                f"Threshold: {threshold:g} / {config.maximum:g} maximum. Applies to the next poll."
+            )
         if command == "/clear_history":
             deleted = self.store.clear_history()
             return f"Notification history cleared: <b>{deleted}</b> records deleted."
@@ -76,10 +105,11 @@ class TelegramCommandProcessor:
             try:
                 threshold = float(argument)
             except ValueError:
-                return f"Usage: {escape(first)} &lt;0-{self.maximum_score:g}&gt;"
-            if not 0 <= threshold <= self.maximum_score:
-                return f"Threshold must be between 0 and {self.maximum_score:g}."
-            self.store.set_threshold(threshold)
+                return f"Usage: {escape(first)} &lt;score&gt;. Use /show_score for the current maximum."
+            try:
+                self.store.set_threshold(threshold)
+            except ValueError as exc:
+                return escape(str(exc))
             return f"Score threshold set to <b>{threshold:g}</b>."
         if command in {"/start", "/help"}:
             return (
@@ -87,6 +117,7 @@ class TelegramCommandProcessor:
                 "/show_skills\n/add_skill &lt;skill&gt;\n/delete_skill &lt;skill&gt;\n\n"
                 "/show_search_words\n/add_search_word &lt;word&gt;\n"
                 "/delete_search_word &lt;word&gt;\n\n"
+                "/show_score\n/set_score &lt;setting&gt; &lt;value&gt;\n"
                 "/show_threshold\n/set_threshold &lt;score&gt;\n\n"
                 "/clear_history"
             )

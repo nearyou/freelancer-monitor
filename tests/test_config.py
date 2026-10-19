@@ -16,16 +16,18 @@ class SettingsTests(TestCase):
         self.assertEqual(settings.poll_interval_seconds, 15)
         self.assertEqual(settings.telegram_send_interval_seconds, 3.1)
 
-    def test_threshold_cannot_exceed_configured_maximum(self):
+    def test_legacy_score_environment_values_are_ignored(self):
         env = {
             "TELEGRAM_BOT_TOKEN": "telegram-token",
             "TELEGRAM_CHAT_ID": "123",
-            "FREELANCER_OAUTH_TOKEN": "freelancer-token",
             "SCORE_THRESHOLD": "101",
+            "SCORE_PAYMENT_VERIFIED": "invalid",
+            "SCORE_REVIEWS_CAP": "0",
         }
         with mock.patch.dict(os.environ, env, clear=True):
-            with self.assertRaisesRegex(ValueError, "cannot exceed"):
-                Settings.from_env()
+            settings = Settings.from_env()
+        self.assertFalse(hasattr(settings, "score"))
+        self.assertFalse(hasattr(settings, "score_threshold"))
 
     def test_telegram_interval_cannot_exceed_group_rate(self):
         env = {

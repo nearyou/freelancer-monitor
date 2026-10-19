@@ -42,9 +42,8 @@ def main() -> int:
     )
     if args.check_config:
         print(
-            f"Configuration OK: threshold={settings.score_threshold:g}, "
-            f"maximum={settings.score.maximum:g}, filters={len(settings.search_words)} words/"
-            f"{len(settings.skills)} skills"
+            "Environment configuration OK. Owner scoring and thresholds are stored in SQLite; "
+            "use /show_score in Telegram to view them."
         )
         return 0
 
@@ -52,17 +51,15 @@ def main() -> int:
     imported = store.initialize_preferences(
         skills=settings.skills,
         search_words=settings.search_words,
-        threshold=settings.score_threshold,
     )
     if imported:
-        logging.info("Imported initial filters and threshold into SQLite")
-    stored_threshold = store.get_threshold()
-    if stored_threshold > settings.score.maximum:
-        store.set_threshold(settings.score.maximum)
+        logging.info("Initialized filters and scoring preferences in SQLite")
+    score_config, stored_threshold = store.get_scoring_settings()
+    if stored_threshold > score_config.maximum:
         logging.warning(
-            "Reduced stored threshold from %g to the new maximum score %g",
+            "Stored threshold %g exceeds maximum %g; use /show_score and /set_threshold in Telegram",
             stored_threshold,
-            settings.score.maximum,
+            score_config.maximum,
         )
     stop = Event()
     workers: list[Thread] = []
@@ -76,7 +73,6 @@ def main() -> int:
         telegram,
         store,
         authorized_chat_id=settings.telegram_chat_id,
-        maximum_score=settings.score.maximum,
     )
     try:
         if args.once:

@@ -36,7 +36,11 @@ def score_employer(
         math.log1p(member_age_days) / math.log1p(config.member_age_max_days), 1.0
     )
 
-    values = (payment, deposit, profile, reviews, member_age)
+    identity = config.identity_verified if employer.identity_verified else 0.0
+    phone = config.phone_verified if employer.phone_verified else 0.0
+    email = config.email_verified if employer.email_verified else 0.0
+    rating = config.rating_max * (min(max(employer.rating, 0.0), 5.0) / 5.0)
+    values = (payment, deposit, profile, reviews, member_age, identity, phone, email, rating)
     return ScoreBreakdown(
         total=round(sum(values), 2),
         payment_verified=round(payment, 2),
@@ -45,4 +49,8 @@ def score_employer(
         reviews=round(reviews, 2),
         member_age=round(member_age, 2),
         member_age_days=round(member_age_days, 2),
+        identity_verified=round(identity, 2),
+        phone_verified=round(phone, 2),
+        email_verified=round(email, 2),
+        rating=round(rating, 2),
     )

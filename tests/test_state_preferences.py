@@ -29,8 +29,8 @@ class PreferenceStoreTests(TestCase):
                 self.assertTrue(store.add_term("skill", "Web Scraping"))
                 self.assertFalse(store.add_term("skill", "web scraping"))
                 self.assertTrue(store.delete_term("skill", "WEB SCRAPING"))
-                store.set_threshold(72.5)
-                self.assertEqual(store.get_threshold(), 72.5)
+                store.set_threshold(52.5)
+                self.assertEqual(store.get_threshold(), 52.5)
 
                 attempts, delay = store.record_project_failure(
                     500, "missing client panel", now=1_000
@@ -59,6 +59,6 @@ class PreferenceStoreTests(TestCase):
                 self.assertFalse(store.has_seen(102))
                 self.assertEqual(store.list_terms("skill"), ("Python",))
                 self.assertEqual(store.list_terms("search_word"), ("automation",))
-                self.assertEqual(store.get_threshold(), 72.5)
+                self.assertEqual(store.get_threshold(), 52.5)
             finally:
                 store.close()
