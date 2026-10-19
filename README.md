@@ -96,8 +96,9 @@ registration date, reputation, and verification states in the same response. The
 requests or per-project enrichment delays. Existing `DETAIL_REQUEST_DELAY_SECONDS` values are ignored.
 
 Telegram displays verification states in three paired rows: identity/email, payment/profile,
-and deposit/phone. They use normal message text without a code block or its Copy button;
-column spacing can vary with the Telegram client's font. Identity,
+and deposit/phone. Each row uses inline fixed-width text with a padded first column, keeping the
+columns aligned without a preformatted block's Copy header or indentation. Narrow screens or
+large text sizes may still wrap long rows. Identity,
 phone, and email have zero score weight by default; enable them with `/set_score`. Missing
 optional verification states use a question mark. When their weight is positive, missing states
 defer the project for an employer-data retry. Payment and deposit map directly to their

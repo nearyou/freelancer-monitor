@@ -55,13 +55,14 @@ class TelegramMessageTests(TestCase):
         self.assertIn("⛔ Phone verified", message)
         self.assertIn("✅ Email verified", message)
         self.assertIn(
-            "✅ Identity verified  ✅ Email verified\n"
-            "✅ Payment verified   ✅ Profile completed\n"
-            "⛔ Deposit made       ⛔ Phone verified",
+            "<code>✅ Identity verified  ✅ Email verified</code>\n"
+            "<code>✅ Payment verified   ✅ Profile completed</code>\n"
+            "<code>⛔ Deposit made       ⛔ Phone verified</code>",
             message,
         )
         self.assertNotIn("<pre>", message)
-        self.assertNotIn("<code>", message)
+        self.assertEqual(message.count("<code>"), 3)
+        self.assertEqual(message.count("</code>"), 3)
         self.assertNotIn("https://www.freelancer.com/projects/42", message)
         self.assertNotIn("Open project", message)
         self.assertIn("<b>Posted:</b> Aug 1, 2026 12:45 JST", message)
