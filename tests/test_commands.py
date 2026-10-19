@@ -1,6 +1,6 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from unittest import TestCase
+from unittest import TestCase, mock
 
 from freelancer_monitor.commands import TelegramCommandProcessor
 from freelancer_monitor.state import SeenProjectStore
@@ -14,11 +14,37 @@ class FakeTelegram:
     def get_updates(self, *, offset=None, timeout_seconds=2):
         return self.updates
 
+    def set_commands(self, commands):
+        self.commands = commands
+
     def send_message(self, text, **kwargs):
         self.messages.append(text)
 
 
 class TelegramCommandTests(TestCase):
+    def test_menu_failure_retries_without_blocking_commands_and_stops_after_success(self):
+        telegram = mock.Mock()
+        telegram.get_updates.return_value = []
+        telegram.set_commands.side_effect = [OSError("offline"), None]
+        with TemporaryDirectory() as directory:
+            store = SeenProjectStore(Path(directory) / "state.db")
+            try:
+                store.initialize_preferences(skills=(), search_words=())
+                processor = TelegramCommandProcessor(telegram, store, authorized_chat_id="123")
+                with mock.patch("freelancer_monitor.commands.time.monotonic", return_value=100):
+                    with self.assertLogs("freelancer_monitor.commands", level="WARNING"):
+                        processor.poll_once()
+                with mock.patch("freelancer_monitor.commands.time.monotonic", return_value=159):
+                    processor.poll_once()
+                self.assertEqual(telegram.set_commands.call_count, 1)
+                with mock.patch("freelancer_monitor.commands.time.monotonic", return_value=160):
+                    processor.poll_once()
+                    processor.poll_once()
+                self.assertEqual(telegram.set_commands.call_count, 2)
+                self.assertEqual(telegram.get_updates.call_count, 4)
+            finally:
+                store.close()
+
     def test_commands_manage_database_preferences_and_ignore_other_chats(self):
         updates = [
             {"update_id": 10, "message": {"chat": {"id": 123}, "text": "/add_skill Go"}},

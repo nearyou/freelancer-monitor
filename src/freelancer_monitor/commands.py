@@ -1,10 +1,30 @@
 from __future__ import annotations
 
+import logging
+import time
 from dataclasses import fields
 from html import escape
 
 from .state import SeenProjectStore
 from .telegram import TelegramClient
+
+logger = logging.getLogger(__name__)
+
+BOT_COMMANDS = (
+    ("show_skills", "Show monitored skills"),
+    ("add_skill", "Add a monitored skill"),
+    ("delete_skill", "Delete a monitored skill"),
+    ("show_search_words", "Show search keywords"),
+    ("add_search_word", "Add a search keyword"),
+    ("delete_search_word", "Delete a search keyword"),
+    ("show_score", "Show owner scoring settings"),
+    ("set_score", "Change a scoring weight or cap"),
+    ("show_threshold", "Show the minimum project score"),
+    ("set_threshold", "Change the minimum project score"),
+    ("clear_history", "Clear history; projects may notify again"),
+    ("help", "Show commands and usage"),
+    ("start", "Show getting-started commands"),
+)
 
 
 class TelegramCommandProcessor:
@@ -18,8 +38,19 @@ class TelegramCommandProcessor:
         self.telegram = telegram
         self.store = store
         self.authorized_chat_id = str(authorized_chat_id)
+        self._menu_registered = False
+        self._menu_retry_at = 0.0
 
     def poll_once(self, timeout_seconds: int = 2) -> int:
+        if not self._menu_registered and time.monotonic() >= self._menu_retry_at:
+            try:
+                self.telegram.set_commands(BOT_COMMANDS)
+            except Exception:
+                # Menu setup must not stop command handling or notification workers.
+                logger.warning("Telegram command menu registration failed; retrying in 60 seconds")
+                self._menu_retry_at = time.monotonic() + 60
+            else:
+                self._menu_registered = True
         offset = self.store.get_telegram_update_offset()
         updates = self.telegram.get_updates(offset=offset, timeout_seconds=timeout_seconds)
         handled = 0

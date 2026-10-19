@@ -6,10 +6,35 @@ from urllib.error import HTTPError
 from urllib.parse import parse_qs
 
 from freelancer_monitor.models import Employer, Project
+from freelancer_monitor.commands import BOT_COMMANDS
 from freelancer_monitor.telegram import TelegramClient, format_project_message
 
 
 class TelegramMessageTests(TestCase):
+    def test_registers_all_commands_with_descriptions_in_configured_chat(self):
+        client = TelegramClient("token", "-123")
+        with mock.patch("freelancer_monitor.telegram.urlopen", return_value=io.BytesIO(b'{"ok": true, "result": true}')) as request:
+            client.set_commands(BOT_COMMANDS)
+        sent = request.call_args.args[0]
+        self.assertTrue(sent.full_url.endswith("/setMyCommands"))
+        parameters = parse_qs(sent.data.decode("utf-8"))
+        self.assertEqual(json.loads(parameters["scope"][0]), {"type": "chat", "chat_id": -123})
+        commands = json.loads(parameters["commands"][0])
+        self.assertEqual({item["command"] for item in commands}, {
+            "show_skills", "add_skill", "delete_skill", "show_search_words", "add_search_word",
+            "delete_search_word", "show_score", "set_score", "show_threshold", "set_threshold",
+            "clear_history", "help", "start",
+        })
+        for command in commands:
+            self.assertRegex(command["command"], r"^[a-z_]{1,32}$")
+            self.assertTrue(1 <= len(command["description"]) <= 256)
+
+    def test_rejected_menu_registration_raises(self):
+        client = TelegramClient("token", "123")
+        with mock.patch("freelancer_monitor.telegram.urlopen", return_value=io.BytesIO(b'{"ok": false}')):
+            with self.assertRaisesRegex(RuntimeError, "command menu"):
+                client.set_commands(BOT_COMMANDS)
+
     def test_message_contains_only_requested_project_fields(self):
         project = Project(
             id=42,

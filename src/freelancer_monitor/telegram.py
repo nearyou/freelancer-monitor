@@ -98,6 +98,26 @@ class TelegramClient:
             elif self.stop_event.wait(remaining):
                 raise InterruptedError("Notification sender stopped")
 
+    def set_commands(self, commands: tuple[tuple[str, str], ...]) -> None:
+        """Publish slash-command suggestions only in the configured chat."""
+        chat_id = int(self.chat_id) if self.chat_id.lstrip("-").isdigit() else self.chat_id
+        parameters = {
+            "commands": json.dumps([
+                {"command": name, "description": description}
+                for name, description in commands
+            ]),
+            "scope": json.dumps({"type": "chat", "chat_id": chat_id}),
+        }
+        request = Request(
+            f"https://api.telegram.org/bot{self.bot_token}/setMyCommands",
+            data=urlencode(parameters).encode("utf-8"),
+            method="POST",
+        )
+        with urlopen(request, timeout=self.timeout) as response:
+            payload = json.load(response)
+        if not payload.get("ok") or payload.get("result") is not True:
+            raise RuntimeError("Telegram rejected command menu registration")
+
     def get_updates(
         self, *, offset: int | None = None, timeout_seconds: int = 2
     ) -> list[dict]:

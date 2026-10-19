@@ -124,6 +124,11 @@ the saved threshold exceeds the new maximum; adjust the weights or threshold bef
 
 Send these commands to the bot from the chat configured by `TELEGRAM_CHAT_ID`:
 
+When running continuously, the bot registers all 13 commands with short descriptions in that chat.
+Type `/` to see Telegram's command suggestions. Select a command, then add its arguments where
+needed (for example `/add_skill Python`). Menu registration retries after 60 seconds if unavailable;
+project polling and message delivery continue. `--once` and `--check-config` do not register the menu.
+
 ```text
 /show_skills
 /add_skill Python
