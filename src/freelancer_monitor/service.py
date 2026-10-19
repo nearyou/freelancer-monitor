@@ -108,4 +108,5 @@ class Monitor:
                     threshold,
                 )
                 self.store.mark_seen(project.id, notified=False, score=score.total)
+        self.store.retain_project_batch(project_ids)
         return processed, queued

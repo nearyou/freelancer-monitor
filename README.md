@@ -44,8 +44,16 @@ Run continuously with:
 python -m freelancer_monitor
 ```
 
-Stop it with `Ctrl+C`. Already processed project IDs are stored in the SQLite file configured by
-`STATE_DB_PATH`, and pending notifications are stored in the same database for delivery after restart.
+Stop it with `Ctrl+C`. Deduplication keeps processed IDs from the latest successful project poll in
+the SQLite file configured by `STATE_DB_PATH`. Each completed poll removes older history and
+off-feed employer-data retry records. A failed poll leaves the previous history intact; a successful
+empty response clears it. Existing accumulated history is trimmed on the first completed poll.
+
+Pending notifications and their duplicate-protection records are retained separately until delivery,
+even after leaving the fetched batch, and survive restarts. Their old history records are removed
+on the next completed poll after delivery. Thus processed history stays bounded by the latest batch
+plus pending alerts, rather than growing forever. If a delivered project disappears from one batch
+and later returns, it can be notified again if it still passes the age, filter, and score checks.
 Use one running monitor process per bot/database.
 
 Project polling runs in its own worker every **15 seconds** by default, independently of message

@@ -283,6 +283,33 @@ class SeenProjectStore:
             )
         return cursor.rowcount
 
+    def retain_project_batch(self, project_ids: list[int]) -> None:
+        """Keep only the last successful poll's history, plus pending deliveries."""
+        # A temporary table avoids SQLite parameter limits for larger page sizes.
+        # The pruning transaction cannot race with a sender completing an alert.
+        with self.connection:
+            self.connection.execute(
+                "CREATE TEMP TABLE IF NOT EXISTS current_project_batch (project_id INTEGER PRIMARY KEY)"
+            )
+            self.connection.execute("DELETE FROM current_project_batch")
+            self.connection.executemany(
+                "INSERT OR IGNORE INTO current_project_batch(project_id) VALUES (?)",
+                ((project_id,) for project_id in project_ids),
+            )
+            self.connection.execute(
+                """
+                DELETE FROM seen_projects
+                WHERE project_id NOT IN (SELECT project_id FROM current_project_batch)
+                  AND project_id NOT IN (
+                      SELECT project_id FROM notification_queue WHERE project_id IS NOT NULL
+                  )
+                """
+            )
+            self.connection.execute(
+                "DELETE FROM project_failures WHERE project_id NOT IN "
+                "(SELECT project_id FROM current_project_batch)"
+            )
+
     def enqueue_project(self, project_id: int, message: str, button_url: str, score: float) -> bool:
         """Atomically persist an alert and mark it processed, but not yet delivered."""
         with self.connection:
