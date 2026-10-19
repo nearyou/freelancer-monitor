@@ -98,8 +98,6 @@ class Settings:
     freelancer_api_url: str
     page_limit: int
     freelancer_languages: tuple[str, ...]
-    search_words: tuple[str, ...]
-    skills: tuple[str, ...]
     filter_match_mode: str
     poll_interval_seconds: int
     state_db_path: Path
@@ -129,8 +127,6 @@ class Settings:
             ).strip(),
             page_limit=_int("FREELANCER_PAGE_LIMIT", 50, 1),
             freelancer_languages=_csv("FREELANCER_LANGUAGES"),
-            search_words=_csv("SEARCH_WORDS"),
-            skills=_csv("SKILLS"),
             filter_match_mode=match_mode,
             poll_interval_seconds=_int("POLL_INTERVAL_SECONDS", 15, 5),
             state_db_path=Path(os.getenv("STATE_DB_PATH", "freelancer_monitor.db")),

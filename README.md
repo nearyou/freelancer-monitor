@@ -38,7 +38,7 @@ native certificate store. Certificate verification is never disabled.
 
 ```powershell
 Copy-Item .env_example .env
-# Edit .env with your Telegram token, chat ID, and optional initial filters.
+# Edit .env with your Telegram token and chat ID.
 python -m pip install -e .
 python -m freelancer_monitor --check-config
 python -m freelancer_monitor --once
@@ -108,11 +108,13 @@ a zero rating. An API error or malformed response fails the poll instead of look
 
 ## Filters
 
-Skills, search words, and all scoring settings are stored in the SQLite database. On the first
-startup, `SKILLS` and `SEARCH_WORDS` environment values are imported once. A new database starts
-with the default weights above and a threshold of 65.
+Skills, search words, and all scoring settings are managed through Telegram and stored in SQLite.
+A new database starts with no skill or search-word filters, the default weights above, and a
+threshold of 65. Add filters with `/add_skill` and `/add_search_word`; existing database filters
+are preserved on upgrade.
 
-All legacy `SCORE_*` environment variables are ignored and can be removed from an existing `.env`.
+Legacy `SKILLS`, `SEARCH_WORDS`, and `SCORE_*` environment variables are ignored and can be removed
+from an existing `.env`. If your filters existed only in `.env`, enter them through Telegram.
 An existing database keeps its saved threshold and gains the default weights once. If you previously
 customized weights in `.env`, enter them through Telegram after upgrading. `/show_score` warns if
 the saved threshold exceeds the new maximum; adjust the weights or threshold before expecting alerts.

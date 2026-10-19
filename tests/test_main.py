@@ -15,7 +15,7 @@ class MainTests(TestCase):
         self.addCleanup(self.directory.cleanup)
         self.settings = SimpleNamespace(
             state_db_path=Path(self.directory.name) / "state.db",
-            skills=(), search_words=(), log_level="ERROR", filter_match_mode="any",
+            log_level="ERROR", filter_match_mode="any",
             telegram_bot_token="test-token", telegram_chat_id="123",
             telegram_send_interval_seconds=3.1,
             freelancer_api_url="https://example.test/api", page_limit=20,

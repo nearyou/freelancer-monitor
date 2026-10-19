@@ -16,18 +16,22 @@ class SettingsTests(TestCase):
         self.assertEqual(settings.poll_interval_seconds, 15)
         self.assertEqual(settings.telegram_send_interval_seconds, 3.1)
 
-    def test_legacy_score_environment_values_are_ignored(self):
+    def test_telegram_managed_preferences_ignore_legacy_environment_values(self):
         env = {
             "TELEGRAM_BOT_TOKEN": "telegram-token",
             "TELEGRAM_CHAT_ID": "123",
             "SCORE_THRESHOLD": "101",
             "SCORE_PAYMENT_VERIFIED": "invalid",
             "SCORE_REVIEWS_CAP": "0",
+            "SKILLS": "Python",
+            "SEARCH_WORDS": "automation",
         }
         with mock.patch.dict(os.environ, env, clear=True):
             settings = Settings.from_env()
         self.assertFalse(hasattr(settings, "score"))
         self.assertFalse(hasattr(settings, "score_threshold"))
+        self.assertFalse(hasattr(settings, "skills"))
+        self.assertFalse(hasattr(settings, "search_words"))
 
     def test_telegram_interval_cannot_exceed_group_rate(self):
         env = {

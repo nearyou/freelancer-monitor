@@ -48,10 +48,7 @@ def main() -> int:
         return 0
 
     store = SeenProjectStore(settings.state_db_path)
-    imported = store.initialize_preferences(
-        skills=settings.skills,
-        search_words=settings.search_words,
-    )
+    imported = store.initialize_preferences(skills=(), search_words=())
     if imported:
         logging.info("Initialized filters and scoring preferences in SQLite")
     score_config, stored_threshold = store.get_scoring_settings()
