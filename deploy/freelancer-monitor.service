@@ -1,0 +1,18 @@
+[Unit]
+Description=Freelancer Telegram Monitor
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=freelancer
+Group=freelancer
+WorkingDirectory=/opt/freelancer-monitor/app
+ExecStart=/usr/bin/node --use-system-ca /opt/freelancer-monitor/app/dist/src/main.js
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=45
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

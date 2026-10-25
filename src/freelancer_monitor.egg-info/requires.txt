@@ -1,2 +1,0 @@
-requests<3,>=2.32
-truststore<1,>=0.10

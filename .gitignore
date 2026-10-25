@@ -3,5 +3,12 @@
 __pycache__/
 *.py[cod]
 *.db
+*.db-shm
+*.db-wal
+node_modules/
+dist/
+*.tsbuildinfo
+*.egg-info/
+.migration-backup/
 .pytest_cache/
 

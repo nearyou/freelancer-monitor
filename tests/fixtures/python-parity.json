@@ -1,0 +1,134 @@
+{
+  "now": "2026-10-25T00:00:00+00:00",
+  "scores": [
+    {
+      "age": 0,
+      "reviews": 0,
+      "score": 35.0
+    },
+    {
+      "age": 0,
+      "reviews": 1,
+      "score": 37.64
+    },
+    {
+      "age": 0,
+      "reviews": 8,
+      "score": 43.38
+    },
+    {
+      "age": 0,
+      "reviews": 50,
+      "score": 50.0
+    },
+    {
+      "age": 0,
+      "reviews": 100,
+      "score": 50.0
+    },
+    {
+      "age": 1,
+      "reviews": 0,
+      "score": 36.5
+    },
+    {
+      "age": 1,
+      "reviews": 1,
+      "score": 39.15
+    },
+    {
+      "age": 1,
+      "reviews": 8,
+      "score": 44.88
+    },
+    {
+      "age": 1,
+      "reviews": 50,
+      "score": 51.5
+    },
+    {
+      "age": 1,
+      "reviews": 100,
+      "score": 51.5
+    },
+    {
+      "age": 50,
+      "reviews": 0,
+      "score": 43.52
+    },
+    {
+      "age": 50,
+      "reviews": 1,
+      "score": 46.16
+    },
+    {
+      "age": 50,
+      "reviews": 8,
+      "score": 51.9
+    },
+    {
+      "age": 50,
+      "reviews": 50,
+      "score": 58.52
+    },
+    {
+      "age": 50,
+      "reviews": 100,
+      "score": 58.52
+    },
+    {
+      "age": 100,
+      "reviews": 0,
+      "score": 45.0
+    },
+    {
+      "age": 100,
+      "reviews": 1,
+      "score": 47.64
+    },
+    {
+      "age": 100,
+      "reviews": 8,
+      "score": 53.38
+    },
+    {
+      "age": 100,
+      "reviews": 50,
+      "score": 60.0
+    },
+    {
+      "age": 100,
+      "reviews": 100,
+      "score": 60.0
+    },
+    {
+      "age": 500,
+      "reviews": 0,
+      "score": 45.0
+    },
+    {
+      "age": 500,
+      "reviews": 1,
+      "score": 47.64
+    },
+    {
+      "age": 500,
+      "reviews": 8,
+      "score": 53.38
+    },
+    {
+      "age": 500,
+      "reviews": 50,
+      "score": 60.0
+    },
+    {
+      "age": 500,
+      "reviews": 100,
+      "score": 60.0
+    }
+  ],
+  "messages": [
+    "<blockquote><b>Example API project</b></blockquote>\n<b>Listing type:</b> Standard\n<b>Payment Type:</b> Fixed price\n<b>Budget:</b> 10\u201330 USD\n<b>Posted:</b> Oct 19, 2026 01:49 JST\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\ud83c\udfe0 Japan\t \u2b50 0\t \ud83d\udcac 0\t \ud83d\udcc5 Sep 4, 2026\n<code>\u26d4 Identity verified  \u2705 Email verified</code>\n<code>\u2705 Payment verified   \u26d4 Profile completed</code>\n<code>\u2705 Deposit made       \u2705 Phone verified</code>",
+    "<blockquote><b>Example API project</b></blockquote>\n<b>Listing type:</b> Standard\n<b>Payment Type:</b> Fixed price\n<b>Budget:</b> 30\u2013250 EUR\n<b>Posted:</b> Oct 19, 2026 01:13 JST\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\ud83c\udfe0 Japan\t \u2b50 5\t \ud83d\udcac 8\t \ud83d\udcc5 Mar 26, 2018\n<code>\u26d4 Identity verified  \u2705 Email verified</code>\n<code>\u2705 Payment verified   \u26d4 Profile completed</code>\n<code>\u2705 Deposit made       \u2705 Phone verified</code>"
+  ]
+}
