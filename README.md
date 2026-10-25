@@ -2,7 +2,7 @@
 
 A TypeScript / Node.js bot that polls the Freelancer API, scores project owners, and sends matching
 projects to Telegram. Python is no longer required. Runtime dependencies are built into Node.js:
-HTTP fetch, SQLite, and timers. TypeScript and Node type definitions are development dependencies.
+HTTP fetch, SQLite, and timers. TypeScript, Node type definitions, and tsx are development dependencies.
 
 ## Run locally
 
@@ -25,6 +25,18 @@ npm start
 `npm start -- --once` fetches one batch and attempts all currently ready notifications. It returns
 exit code 1 if notifications remain queued for retry. Stop continuous mode with Ctrl+C.
 SIGINT and SIGTERM cancel HTTP requests and waits and close SQLite after the loops finish.
+
+For development, run:
+
+```sh
+npm run dev
+```
+
+This runs TypeScript directly and automatically restarts when the entry point or an imported source
+file changes. No separate build is needed, and console output is preserved between restarts.
+Stop with Ctrl+C; restart manually after editing `.env`. Development mode uses the same configured
+bot and SQLite database, so stop the production instance before running it. It transpiles without
+type-checking; use `npm run build` or `npm test` to check types before deploying.
 
 The start command enables the operating system certificate store with `--use-system-ca`.
 Certificate verification remains enabled. Direct launches should use the same flag:
